@@ -3,6 +3,7 @@
 #include "keyboard.h"
 #else
 #include <QApplication>
+#include <QTimer>
 #include <QTranslator>
 #endif
 
@@ -25,8 +26,16 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
+#ifdef WFVIEW_IOS
+#include <QPermissions>
+#include <QEventLoop>
+#endif
 
 #include "logcategories.h"
+
+#ifdef WFVIEW_IOS
+#include "iosaudiosession.h"
+#endif
 
 bool debugMode=false;
 
@@ -119,6 +128,25 @@ int main(int argc, char *argv[])
     a.setOrganizationDomain("wfview.org");
     a.setApplicationName("wfview");
     a.setDesktopFileName("wfview");
+#ifdef WFVIEW_IOS
+    // Configure the iOS audio session to allow a Bluetooth (HFP) headset to be
+    // used for both microphone input and audio output.
+    configureIosAudioSession();
+
+    // Qt audio input can start successfully but deliver silence until iOS
+    // recording permission has been resolved. Complete the permission request
+    // before wfmain creates the LAN transmit-audio input path.
+    QMicrophonePermission microphonePermission;
+    if (a.checkPermission(microphonePermission) == Qt::PermissionStatus::Undetermined)
+    {
+        QEventLoop permissionLoop;
+        a.requestPermission(microphonePermission, &a,
+                            [&permissionLoop](const QPermission &) {
+            permissionLoop.quit();
+        });
+        permissionLoop.exec();
+    }
+#endif
 #endif
 
 #ifdef QT_DEBUG
@@ -328,7 +356,19 @@ int main(int argc, char *argv[])
 #else
     a.setWheelScrollLines(1); // one line per wheel click
     wfmain w(settingsFile, logFilename, debugMode);
+#ifdef WFVIEW_IOS
+    // iOS makes the application's top-level window fullscreen itself.  Calling
+    // showFullScreen() after show() recreates the native window geometry and can
+    // leave Qt's logical width larger than the device viewport.
     w.show();
+#else
+    w.show();
+    QTimer::singleShot(0, &w, [&w]() {
+        w.showMaximized();
+        w.raise();
+        w.activateWindow();
+    });
+#endif
 
 #endif
     return a.exec();

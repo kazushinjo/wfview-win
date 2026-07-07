@@ -4,7 +4,7 @@
 #include <QDebug>
 #include <QFile>
 
-#ifndef Q_OS_WIN
+#if !defined(Q_OS_WIN) && !defined(WFVIEW_IOS)
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -30,7 +30,7 @@ pttyHandler::pttyHandler(QString pty, QObject* parent) : QObject(parent)
 
     portName = pty;
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(WFVIEW_IOS)
     // TODO: The following should become arguments and/or functions
     // Add signal/slot everywhere for comm port setup.
     // Consider how to "re-setup" and how to save the state for next time.
@@ -48,7 +48,7 @@ void pttyHandler::openPort()
 {
     serialError = false;
     bool success=false;
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(WFVIEW_IOS)
     port = new QSerialPort();
     port->setPortName(portName);
     port->setBaudRate(baudRate);
@@ -101,7 +101,7 @@ void pttyHandler::openPort()
     }
 
 
-#ifndef Q_OS_WIN
+#if !defined(Q_OS_WIN) && !defined(WFVIEW_IOS)
     ptDevSlave = QString::fromLocal8Bit(ptsname(ptfd));
 
     if (portName != "" && portName.toLower() != "none")
@@ -164,7 +164,7 @@ void pttyHandler::sendDataOut(const QByteArray& writeData)
     //printHex(writeData, false, true);
     if (isConnected) {
         mutex.lock();
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(WFVIEW_IOS)
         bytesWritten = port->write(writeData);
 #else
         bytesWritten = ::write(ptfd, writeData.constData(), writeData.size());
@@ -180,7 +180,7 @@ void pttyHandler::sendDataOut(const QByteArray& writeData)
 
 void pttyHandler::receiveDataIn(int fd) {
 
-#ifndef Q_OS_WIN
+#if !defined(Q_OS_WIN) && !defined(WFVIEW_IOS)
     ssize_t available = 255; // Read up to 'available' bytes
 #else
     Q_UNUSED(fd);
@@ -194,7 +194,7 @@ void pttyHandler::receiveDataIn(int fd) {
         return;
 #endif
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(WFVIEW_IOS)
     port->startTransaction();
     inPortData = port->readAll();
 #else
@@ -213,7 +213,7 @@ void pttyHandler::receiveDataIn(int fd) {
         if (inPortData.endsWith("\xFD"))
         {
             // good!
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(WFVIEW_IOS)
             port->commitTransaction();
 #endif
 
@@ -263,7 +263,7 @@ void pttyHandler::receiveDataIn(int fd) {
             // qInfo(logSerial()) << "Rolling back transaction. End not detected. Length: " << inPortData.length();
             //printHex(inPortData, false, true);
             rolledBack = true;
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(WFVIEW_IOS)
             port->rollbackTransaction();
         }
     }
@@ -283,7 +283,7 @@ void pttyHandler::receiveDataIn(int fd) {
 
 void pttyHandler::closePort()
 {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(WFVIEW_IOS)
     if (port != Q_NULLPTR)
     {
         port->close();

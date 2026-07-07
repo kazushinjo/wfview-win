@@ -251,12 +251,14 @@ void icomUdpAudio::startAudio() {
     if (rxSetup.type == qtAudio) {
         rxaudio = new audioHandlerQtOutput();
     }
+#ifndef WFVIEW_IOS
     else if (rxSetup.type == portAudio) {
         rxaudio = new audioHandlerPaOutput();
     }
     else if (rxSetup.type == rtAudio) {
         rxaudio = new audioHandlerRtOutput();
     }
+#endif
 #ifndef BUILD_WFSERVER
     else if (rxSetup.type == tciAudio) {
         rxaudio = new audioHandlerTciOutput();
@@ -295,12 +297,14 @@ void icomUdpAudio::startAudio() {
         if (txSetup.type == qtAudio) {
             txaudio = new audioHandlerQtInput();
         }
+#ifndef WFVIEW_IOS
         else if (txSetup.type == portAudio) {
             txaudio = new audioHandlerPaInput();
         }
         else if (txSetup.type == rtAudio) {
             txaudio = new audioHandlerRtInput();
         }
+#endif
 #ifndef BUILD_WFSERVER
         else if (txSetup.type == tciAudio) {
             txaudio = new audioHandlerTciInput();

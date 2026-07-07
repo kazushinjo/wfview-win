@@ -7,6 +7,9 @@
 
 #include <QMainWindow>
 #include <QCloseEvent>
+#include <QResizeEvent>
+#include <QWidget>
+#include <QHBoxLayout>
 #include <QThread>
 #include <QString>
 #include <QVector>
@@ -50,7 +53,6 @@
 #include "yaesuserver.h"
 #include "qledlabel.h"
 #include "rigctld.h"
-#include "aboutbox.h"
 #include "selectradio.h"
 #include "colorprefs.h"
 #include "loggingwindow.h"
@@ -75,11 +77,14 @@
 #include <deque>
 #include <memory>
 
+// PortAudio and RtAudio are desktop-only. iOS uses the Qt Multimedia backend.
+#ifndef WFVIEW_IOS
 #include <portaudio.h>
 #ifndef Q_OS_LINUX
 #include "RtAudio.h"
 #else
 #include "rtaudio/RtAudio.h"
+#endif
 #endif
 
 #ifdef USB_CONTROLLER
@@ -339,6 +344,9 @@ private slots:
 
     void handleExtConnectBtn();
     void handleRevertSettingsBtn();
+    void handleConnectionProfileSelected(QString name);
+    void handleConnectionProfileSaveRequested(QString name);
+    void handleConnectionProfileDeleteRequested(QString name);
 
     void receiveScopeSettings(uchar receiver, int theme, quint16 len, int floor, int ceiling);
     void receiveValue(cacheItem val);
@@ -399,7 +407,6 @@ private slots:
     void changeFullScreenMode(bool checked);
 
     void on_freqDial_valueChanged(int value);
-    void on_aboutBtn_clicked();
 
     void on_rfGainSlider_valueChanged(int value);
     void on_afGainSlider_valueChanged(int value);
@@ -491,19 +498,40 @@ private:
     Ui::wfmain *ui; // Main UI
     QVector<receiverWidget*>receivers;   // Spectrum Scope items.
     void closeEvent(QCloseEvent *event);
+    void resizeEvent(QResizeEvent *event) override;
     QString logFilename;
     bool debugMode;
     QString version;
     QSettings *settings=Q_NULLPTR;
+    class QSlider *iosWfLevelSlider = nullptr; // waterfall colour floor, in RF/AF slider group
+    class QLabel *iosWfLevelLabel = nullptr;
+#ifdef WFVIEW_IOS
+    class QPushButton *iosLockButton = nullptr;
+    bool iosFineTuning = false; // Force the frequency dial to 1 Hz steps.
+    double iosPendingSWR = 0.0;
+    bool iosPendingSWRValid = false;
+    // Add a "← 戻る" back button to a full-screen popup so it can be dismissed.
+    void addIosBackButton(QWidget *w);
+#endif
     void loadSettings();
     void saveSettings();
     void connectSettingsWidget();
+    QStringList connectionProfileNames() const;
+    QString connectionProfileStorageKey(const QString& name) const;
+    void refreshConnectionProfileUi();
+    void saveConnectionProfile(const QString& name);
+    bool loadConnectionProfile(const QString& name);
+    void deleteConnectionProfile(const QString& name);
 
     void initLogging();
     QTimer logCheckingTimer;
     int logCheckingOldPosition = 0;
     QTimer ATUCheckTimer;
+    bool atuStatusCheckPending = false;
+    bool atuTuneCyclePending = false;
+    int atuTuneStatusChecks = 0;
     QTimer ConnectionTimer;
+    QString currentConnectionProfile;
 
     QCustomPlot *plot; // line plot
     QCustomPlot *wf; // waterfall image
@@ -563,6 +591,8 @@ private:
     QLabel* rigName;
     QLedLabel* pttLed;
     QLedLabel* connectedLed;
+    QWidget* iosRigStatusWidget = Q_NULLPTR;
+    QHBoxLayout* iosRigStatusLayout = Q_NULLPTR;
 
     double passbandWidth = 0.0;
 
@@ -624,6 +654,10 @@ private:
     void changePrimaryMeter(bool transmitOn);
     void changeSliderQuietly(QSlider *slider, int value);
     void showAndRaiseWidget(QWidget *w);
+#ifdef WFVIEW_IOS
+    void positionIosOverlay(QWidget *w);
+    QWidget *iosOverlayWidget = Q_NULLPTR;
+#endif
     void statusFromSliderPercent(QString name, int percentValue);
     void statusFromSliderRaw(QString name, int rawValue);
 
@@ -670,7 +704,6 @@ private:
     //transceiverAdjustments *trxadj = Q_NULLPTR;
     cwSender *cw = Q_NULLPTR;
     controllerSetup* usbWindow = Q_NULLPTR;
-    aboutbox *abtBox = Q_NULLPTR;
     selectRadio *selRad = Q_NULLPTR;
     loggingWindow *logWindow = Q_NULLPTR;
     rigCreator *creator = Q_NULLPTR;

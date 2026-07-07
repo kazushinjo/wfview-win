@@ -280,6 +280,8 @@ struct preferences {
     int subPlotFloor;
     int mainPlotCeiling;
     int subPlotCeiling;
+    int mainWfFloor; // waterfall color floor, independent of spectrum plotFloor
+    int subWfFloor;
     unsigned int mainWflength;
     unsigned int subWflength;
     int scopeScrollX;

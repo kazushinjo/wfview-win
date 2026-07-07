@@ -13,6 +13,8 @@
 #include <QLineEdit>
 #include <QStringList>
 #include <QShortcut>
+#include <QComboBox>
+#include <QPushButton>
 
 #include "logcategories.h"
 #include "prefs.h"
@@ -36,6 +38,7 @@ public:
     explicit settingswidget(QWidget *parent = nullptr);
 
     ~settingswidget();
+    QString currentConnectionProfileName() const;
 
 public slots:
     void acceptPreferencesPtr(preferences *pptr);
@@ -73,6 +76,7 @@ public slots:
     void setAudioDevicesUI();
 
     void connectionStatus(bool conn);
+    void setConnectionProfiles(const QStringList& profileNames, const QString& currentProfile);
 
 signals:
     void changedIfPrefs(quint64 items);
@@ -102,6 +106,9 @@ signals:
     void connectButtonPressed();
     void saveSettingsButtonPressed();
     void revertSettingsButtonPressed();
+    void connectionProfileSelected(QString name);
+    void connectionProfileSaveRequested(QString name);
+    void connectionProfileDeleteRequested(QString name);
     void havePortError(errorType err);
 
 private slots:
@@ -310,6 +317,7 @@ private:
     Ui::settingswidget *ui;
     void createSettingsListItems();
     void populateComboBoxes();
+    void createConnectionProfileControls();
     void updateAllPrefs();
     void updateUnderlayMode();
     void setUItoClustersList();
@@ -364,6 +372,9 @@ private:
     bool haveClusterList = false;
     bool updatingUIFromPrefs = false;
     bool connectedStatus = false;
+    QComboBox *connectionProfileCombo = Q_NULLPTR;
+    QPushButton *connectionProfileSaveBtn = Q_NULLPTR;
+    QPushButton *connectionProfileDeleteBtn = Q_NULLPTR;
     audioDevices* audioDev = Q_NULLPTR;
 
 };

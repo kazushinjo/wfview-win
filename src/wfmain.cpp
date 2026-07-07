@@ -5,6 +5,19 @@
 #include "rigidentities.h"
 #include "logcategories.h"
 
+#include <QLabel>
+#include <QPushButton>
+#include <QSlider>
+#include <QVBoxLayout>
+
+#ifdef WFVIEW_IOS
+#include <QBoxLayout>
+#include <QHBoxLayout>
+#include <QCheckBox>
+#include <QApplication>
+#include <QStyle>
+#endif
+
 
 // This code is copyright 2017-2024 Elliott H. Liggett and Phil E. Taylor
 // All rights reserved
@@ -40,6 +53,100 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     setWindowTitle(QString("wfview"));
 
     ui->monitorLabel->setText("Mon");
+    // The tuning step is chosen from the clicked frequency digit. Keep this
+    // combo populated for internal state, but remove it from the visible UI.
+    ui->tuningStepCombo->hide();
+#ifdef WFVIEW_IOS
+    // These groups depend on the connected radio's capabilities.  Keeping the
+    // Designer defaults visible before capability discovery gives the main
+    // window a minimum width larger than an iPad landscape viewport.
+    ui->scopeSettingsGroup->hide();
+    ui->preampAttGroup->hide();
+    ui->antennaGroup->hide();
+    ui->horizontalLayout_2->removeItem(ui->tuningLayout);
+    ui->horizontalLayout_2->insertLayout(4, ui->tuningLayout);
+    ui->freqDial->setFixedSize(140, 140);
+    ui->freqDial->setStyleSheet(
+        QStringLiteral("QDial { background-color: #f6d6a8; border-radius: 70px; }"));
+    QLabel *frequencyDialLabel = new QLabel(QStringLiteral("周波数ダイアル"), ui->mainGroup);
+    frequencyDialLabel->setObjectName(QStringLiteral("frequencyDialLabel"));
+    frequencyDialLabel->setAlignment(Qt::AlignCenter);
+    ui->tuningLayout->insertWidget(0, frequencyDialLabel);
+    ui->tuningLayout->setContentsMargins(30, 20, 0, 0);
+    ui->tuningLayout->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
+    ui->tuningLayout->setAlignment(ui->freqDial, Qt::AlignCenter);
+    ui->tuningLayout->insertSpacing(2, 10);
+
+    QHBoxLayout *fineLockLayout = new QHBoxLayout;
+    fineLockLayout->setContentsMargins(0, 0, 0, 0);
+    fineLockLayout->setSpacing(8);
+
+    ui->horizontalLayout_25->removeWidget(ui->ritTuneDial);
+    ui->horizontalLayout_25->removeWidget(ui->ritEnableChk);
+
+    QHBoxLayout *ritInlineLayout = new QHBoxLayout;
+    ritInlineLayout->setContentsMargins(0, 0, 0, 0);
+    ritInlineLayout->setSpacing(4);
+
+    QPushButton *fineButton = new QPushButton(QStringLiteral("Fine"), ui->mainGroup);
+    fineButton->setObjectName(QStringLiteral("fineTuningButton"));
+    fineButton->setCheckable(true);
+    fineButton->setFixedWidth(80);
+    fineButton->setToolTip(QStringLiteral("周波数ダイアルを1 Hzステップに切り替えます"));
+    fineButton->setStyleSheet(QStringLiteral(
+        "QPushButton { border-radius: 8px; }"
+        "QPushButton:checked { background-color: #f6d6a8; color: #202124; }"));
+    fineLockLayout->addWidget(fineButton);
+
+    iosLockButton = new QPushButton(QStringLiteral("Lock"), ui->mainGroup);
+    iosLockButton->setObjectName(QStringLiteral("frequencyLockButton"));
+    iosLockButton->setCheckable(true);
+    iosLockButton->setFixedWidth(80);
+    iosLockButton->setToolTip(QStringLiteral("周波数をロックします"));
+    iosLockButton->setStyleSheet(QStringLiteral(
+        "QPushButton { border-radius: 8px; }"
+        "QPushButton:checked { background-color: #f6d6a8; color: #202124; }"));
+    fineLockLayout->addWidget(iosLockButton);
+
+    ritInlineLayout->addWidget(ui->ritTuneDial);
+    ritInlineLayout->addWidget(ui->ritEnableChk);
+    fineLockLayout->addLayout(ritInlineLayout);
+
+    ui->tuningLayout->addLayout(fineLockLayout);
+    connect(fineButton, &QPushButton::toggled, this, [this](bool checked) {
+        iosFineTuning = checked;
+    });
+    connect(iosLockButton, &QPushButton::toggled, this, [this](bool checked) {
+        if (ui->tuneLockChk->isChecked() != checked)
+        {
+            ui->tuneLockChk->blockSignals(true);
+            ui->tuneLockChk->setChecked(checked);
+            ui->tuneLockChk->blockSignals(false);
+        }
+        on_tuneLockChk_clicked(checked);
+    });
+    connect(ui->tuneLockChk, &QCheckBox::toggled, this, [this](bool checked) {
+        if (iosLockButton == nullptr)
+            return;
+        iosLockButton->blockSignals(true);
+        iosLockButton->setChecked(checked);
+        iosLockButton->blockSignals(false);
+    });
+    iosLockButton->setChecked(ui->tuneLockChk->isChecked());
+
+#endif
+
+    const QList<QPushButton *> roundedControlButtons = {
+        ui->rigPowerOnBtn, ui->rigPowerOffBtn, ui->transmitBtn,
+        ui->tuneNowBtn, ui->cwButton, ui->rptSetupBtn, ui->splitBtn,
+        ui->memoriesBtn
+    };
+    for (QPushButton *button : roundedControlButtons)
+        button->setStyleSheet(button->styleSheet()
+                              + QStringLiteral("QPushButton { border-radius: 10px; }"));
+    ui->transmitBtn->setStyleSheet(QStringLiteral(
+        "QPushButton { background-color: #c8e6c9; color: #202124; "
+        "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
 
     // Accessibility: the operating buttons are NoFocus in the .ui so the tuning
     // controls keep keyboard focus. That leaves keyboard-only and VoiceOver
@@ -50,7 +157,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
         ui->cwButton, ui->rptSetupBtn, ui->memoriesBtn,
         ui->dualWatchBtn, ui->scopeDualBtn, ui->scopeMainSubBtn,
         ui->splitBtn, ui->swapMainSubBtn, ui->mainEqualsSubBtn,
-        ui->aboutBtn, ui->showSettingsBtn, ui->saveSettingsBtn,
+        ui->showSettingsBtn, ui->saveSettingsBtn,
         ui->radioStatusBtn, ui->showLogBtn, ui->showBandsBtn,
         ui->showFreqBtn, ui->rigCreatorBtn, ui->TXaudioProcBtn,
         ui->RXaudioProcBtn, ui->connectBtn, ui->exitBtn
@@ -105,12 +212,13 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     }
 #endif
 
+#ifndef WFVIEW_IOS
     qInfo(logSystem()).noquote() << QString("PORTAUDIO Version: %0").arg(Pa_GetVersionText());
+#endif
 
     cal = new calibrationWindow();
     rpt = new repeaterSetup();
     sat = new satelliteSetup();
-    abtBox = new aboutbox();
     selRad = new selectRadio();
     bandbtns = new bandbuttons();
 
@@ -228,7 +336,84 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     setDefaultColorPresets();
 
+    // Raise the level sliders: remove the expanding spacer above them so the
+    // tall sliders don't overlap the "Other Controls" label below.
+    ui->controlsLayout->removeItem(ui->verticalSpacer);
+    // Add a "WF" column to the RF/AF/SQL level-slider group: a vertical slider
+    // that sets the waterfall colour floor at runtime, independent of the
+    // spectrum. Mirrors the RF/AF/SQL columns (slider on top, label below).
+    {
+        QFont mg = ui->mainGroup->font();
+        mg.setPointSizeF(16.0);
+        mg.setBold(true);
+        QVBoxLayout *wfCol = new QVBoxLayout();
+        wfCol->setSpacing(2);
+        iosWfLevelSlider = new QSlider(Qt::Vertical);
+        iosWfLevelSlider->setRange(0, 160);
+        iosWfLevelSlider->setValue(prefs.mainWfFloor); // finalised after loadSettings()
+        iosWfLevelSlider->setToolTip(QStringLiteral("ウォーターフォールの色レベル(floor)"));
+        // Match the RF/AF/SQL sliders: Fixed policy, 120px minimum height.
+        iosWfLevelSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        iosWfLevelSlider->setMinimumHeight(120);
+        iosWfLevelLabel = new QLabel(QStringLiteral("WF"));
+        iosWfLevelLabel->setAlignment(Qt::AlignHCenter);
+        iosWfLevelLabel->setFont(mg);
+        wfCol->addWidget(iosWfLevelSlider, 0, Qt::AlignHCenter);
+        wfCol->addWidget(iosWfLevelLabel, 0);
+        ui->levelsHorizontalLayout->addLayout(wfCol);
+        connect(iosWfLevelSlider, &QSlider::valueChanged, this, [this](int val){
+            prefs.mainWfFloor = val;
+            prefs.subWfFloor = val;
+            prefs.settingsChanged = true;
+            for(int i = 0; i < receivers.size(); ++i) {
+                const int ceiling = (i == 0) ? prefs.mainPlotCeiling : prefs.subPlotCeiling;
+                receivers[i]->setWfRange(val, ceiling);
+            }
+            // iOS has no Save button; persist immediately so the value is
+            // applied on the next launch. Must match the "Interface" group
+            // that saveSettings()/loadSettings() use, or it won't be read back.
+#ifdef WFVIEW_IOS
+            if(settings){
+                settings->beginGroup("Interface");
+                settings->setValue("MainWfFloor", val);
+                settings->setValue("SubWfFloor", val);
+                settings->endGroup();
+                settings->sync();
+            }
+#endif
+        });
+    }
+#ifdef WFVIEW_IOS
+    // iOS force-quit (swipe-up) can drop CFPreferences writes that were only
+    // sync()'d mid-session. Flush settings to disk whenever the app leaves the
+    // foreground, the OS-sanctioned moment before suspension/termination.
+    connect(qApp, &QApplication::applicationStateChanged, this,
+            [this](Qt::ApplicationState state){
+        if(state != Qt::ApplicationActive && settings){
+            settings->beginGroup("Interface");
+            settings->setValue("MainWfFloor", prefs.mainWfFloor);
+            settings->setValue("SubWfFloor", prefs.subWfFloor);
+            settings->endGroup();
+            settings->sync();
+        }
+    });
+#endif
+
     loadSettings(); // Look for saved preferences
+#ifdef WFVIEW_IOS
+    // Keep the second meter, directly below the S meter, assigned to SWR on
+    // iPad even when an older saved configuration has it disabled.
+    prefs.meter2Type = meterSWR;
+#endif
+
+    // The WF-level slider was built before loadSettings(); sync it to the saved
+    // value now (blocking signals so it doesn't overwrite prefs).
+    if(iosWfLevelSlider)
+    {
+        iosWfLevelSlider->blockSignals(true);
+        iosWfLevelSlider->setValue(prefs.mainWfFloor);
+        iosWfLevelSlider->blockSignals(false);
+    }
     logWindow->ingestSettings(prefs);
 
     setManufacturer(prefs.manufacturer);
@@ -238,7 +423,11 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     setTuningSteps(); // TODO: Combine into preferences
 
+#ifndef WFVIEW_IOS
     changeFullScreenMode(prefs.useFullScreen);
+#else
+    onFullscreen = prefs.useFullScreen;
+#endif
     useSystemTheme(prefs.useSystemTheme);
 
     // Don't update prefs until system theme is loaded.
@@ -252,6 +441,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     setupui->updateLanPrefs((int)l_all);
     setupui->updateUdpPrefs((int)u_all);
     setupui->updateServerConfigs((int)s_all);
+    refreshConnectionProfileUi();
 
     finputbtns->setAutomaticSidebandSwitching(prefs.automaticSidebandSwitching);
 
@@ -475,6 +665,15 @@ void wfmain::closeEvent(QCloseEvent *event)
 
 }
 
+void wfmain::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+#ifdef WFVIEW_IOS
+    if (iosOverlayWidget && iosOverlayWidget->isVisible())
+        positionIosOverlay(iosOverlayWidget);
+#endif
+}
+
 void wfmain::openRig()
 {
     // This function is intended to handle opening a connection to the rig.
@@ -541,7 +740,6 @@ void wfmain::openRig()
     prefs.rxSetup.rxProc = rxProc;
 
     makeRig();
-
 
     if (prefs.enableLAN)
     {
@@ -902,6 +1100,14 @@ void wfmain::receiveNetworkAudioLevels(networkAudioLevels l)
 
 void wfmain::setupMainUI()
 {
+    ATUCheckTimer.setSingleShot(true);
+    connect(&ATUCheckTimer, &QTimer::timeout, this, [this]() {
+        atuStatusCheckPending = true;
+        if (atuTuneCyclePending)
+            ++atuTuneStatusChecks;
+        queue->add(priorityHighest, funcTunerStatus);
+    });
+
     // Set scroll wheel response (tick interval)
     // and set arrow key response (single step)
     ui->rfGainSlider->setTickInterval(100);
@@ -928,21 +1134,33 @@ void wfmain::setupMainUI()
 
     rigStatus = new QLabel(this);
     ui->statusBar->addPermanentWidget(rigStatus);
+    rigStatus->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    rigStatus->setFixedWidth(220);
     ui->statusBar->showMessage("Connecting to rig...", 1000);
 
     pttLed = new QLedLabel(this);
-    ui->statusBar->addPermanentWidget(pttLed);
     pttLed->setState(QLedLabel::State::StateOk);
     pttLed->setToolTip("Receiving");
 
     connectedLed = new QLedLabel(this);
-    ui->statusBar->addPermanentWidget(connectedLed);
-
     rigName = new QLabel(this);
     rigName->setAlignment(Qt::AlignRight);
-    ui->statusBar->addPermanentWidget(rigName);
     rigName->setText("NONE");
-    rigName->setFixedWidth(60);
+    rigName->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    rigName->setFixedWidth(100);
+
+    iosRigStatusWidget = new QWidget(this);
+    iosRigStatusLayout = new QHBoxLayout(iosRigStatusWidget);
+    iosRigStatusLayout->setContentsMargins(0, 0, 0, 0);
+    iosRigStatusLayout->setSpacing(6);
+    iosRigStatusLayout->addWidget(pttLed);
+    iosRigStatusLayout->addWidget(connectedLed);
+    iosRigStatusLayout->addWidget(rigName);
+    iosRigStatusLayout->addStretch(1);
+    iosRigStatusWidget->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    iosRigStatusWidget->setFixedWidth(190);
+    ui->statusBar->addPermanentWidget(iosRigStatusWidget);
+    ui->statusBar->setSizeGripEnabled(false);
 
     freqt f;
     f.MHzDouble = 0.0;
@@ -1036,6 +1254,9 @@ void wfmain::connectSettingsWidget()
     connect(setupui, SIGNAL(connectButtonPressed()), this, SLOT(handleExtConnectBtn()));
     connect(setupui, SIGNAL(saveSettingsButtonPressed()), this, SLOT(on_saveSettingsBtn_clicked()));
     connect(setupui, SIGNAL(revertSettingsButtonPressed()), this, SLOT(handleRevertSettingsBtn()));
+    connect(setupui, SIGNAL(connectionProfileSelected(QString)), this, SLOT(handleConnectionProfileSelected(QString)));
+    connect(setupui, SIGNAL(connectionProfileSaveRequested(QString)), this, SLOT(handleConnectionProfileSaveRequested(QString)));
+    connect(setupui, SIGNAL(connectionProfileDeleteRequested(QString)), this, SLOT(handleConnectionProfileDeleteRequested(QString)));
 }
 
 // NOT Migrated, EHL TODO, carefully remove this function
@@ -1169,6 +1390,8 @@ void wfmain::configureVFOs()
         receiver->setScrollSpeedXY(prefs.scopeScrollX, prefs.scopeScrollY);
         receiver->prepareWf(i==0?prefs.mainWflength:prefs.subWflength);
         receiver->setRange(i==0?prefs.mainPlotFloor:prefs.subPlotFloor,i==0?prefs.mainPlotCeiling:prefs.subPlotCeiling);
+        // Waterfall colour floor is independent of the spectrum plot floor above.
+        receiver->setWfRange(i==0?prefs.mainWfFloor:prefs.subWfFloor,i==0?prefs.mainPlotCeiling:prefs.subPlotCeiling);
         receiver->wfTheme(i==0?prefs.mainWfTheme:prefs.subWfTheme);
         receiver->setClickDragTuning(prefs.clickDragTuningEnable);
         receiver->setTuningFloorZeros(prefs.niceTS);
@@ -1205,6 +1428,37 @@ void wfmain::configureVFOs()
         connect(receiver,SIGNAL(showStatusBarText(QString)),this,SLOT(showStatusBarText(QString)));
         connect(receiver,SIGNAL(sendScopeImage(uchar)),this,SLOT(receiveScopeImage(uchar)));
         receivers.append(receiver);
+        connect(receiver, &receiverWidget::stepSizeSelected, this, [=](uchar selectedReceiver, quint64 hz) {
+            if (hz == 0)
+                return;
+
+            tsWfScrollHz = static_cast<unsigned int>(hz);
+            tsKnobHz = static_cast<unsigned int>(hz);
+            tsWfScroll = static_cast<float>(hz) / 1000000.0f;
+            tsKnobMHz = static_cast<float>(hz) / 1000000.0f;
+
+            for (const auto& rx: receivers)
+                rx->setStepSize(hz);
+
+            int stepIndex = -1;
+            for (int step = 0; step < ui->tuningStepCombo->count(); ++step)
+            {
+                if (ui->tuningStepCombo->itemData(step).toULongLong() == hz)
+                {
+                    stepIndex = step;
+                    break;
+                }
+            }
+            if (stepIndex >= 0 && ui->tuningStepCombo->currentIndex() != stepIndex)
+            {
+                ui->tuningStepCombo->blockSignals(true);
+                ui->tuningStepCombo->setCurrentIndex(stepIndex);
+                ui->tuningStepCombo->blockSignals(false);
+            }
+
+            qDebug(logGui()) << "Selected frequency digit tuning step" << hz
+                             << "Hz on receiver" << selectedReceiver;
+        });
 
         // Currently tracking is disabled
         //if (receivers.size() > 1)
@@ -1847,6 +2101,15 @@ void wfmain::setDefPrefs()
     defPrefs.subWfTheme = static_cast<int>(QCPColorGradient::gpJet);
     defPrefs.subPlotFloor = 0;
     defPrefs.subPlotCeiling = 160;
+#ifdef WFVIEW_IOS
+    // Waterfall colour floor: adjustable at runtime from the RF/AF slider group.
+    // Default 60 so noise is dark out of the box; persisted across launches.
+    defPrefs.mainWfFloor = 60;
+    defPrefs.subWfFloor = 60;
+#else
+    defPrefs.mainWfFloor = 0;
+    defPrefs.subWfFloor = 0;
+#endif
     defPrefs.scopeScrollX = 120;
     defPrefs.scopeScrollY = 120;
     defPrefs.confirmExit = true;
@@ -1854,7 +2117,11 @@ void wfmain::setDefPrefs()
     defPrefs.confirmSettingsChanged = true;
     defPrefs.confirmMemories = false;
     defPrefs.meter1Type = meterS;
+#ifdef WFVIEW_IOS
+    defPrefs.meter2Type = meterSWR;
+#else
     defPrefs.meter2Type = meterNone;
+#endif
     defPrefs.meter3Type = meterNone;
     defPrefs.compMeterReverse = false;
     defPrefs.region = "1";
@@ -1949,6 +2216,10 @@ void wfmain::loadSettings()
     prefs.subPlotFloor = settings->value("SubPlotFloor", defPrefs.subPlotFloor).toInt();
     prefs.mainPlotCeiling = settings->value("MainPlotCeiling", defPrefs.mainPlotCeiling).toInt();
     prefs.subPlotCeiling = settings->value("SubPlotCeiling", defPrefs.subPlotCeiling).toInt();
+    // Waterfall colour floor is user-adjustable (RF/AF slider group) so always
+    // load the saved value.
+    prefs.mainWfFloor = settings->value("MainWfFloor", defPrefs.mainWfFloor).toInt();
+    prefs.subWfFloor = settings->value("SubWfFloor", defPrefs.subWfFloor).toInt();
     prefs.scopeScrollX = settings->value("scopeScrollX", defPrefs.scopeScrollX).toInt();
     prefs.scopeScrollY = settings->value("scopeScrollY", defPrefs.scopeScrollY).toInt();
     prefs.decimalSeparator = settings->value("DecimalSeparator", defPrefs.decimalSeparator).toChar();
@@ -1966,9 +2237,12 @@ void wfmain::loadSettings()
     prefs.stylesheetPath = settings->value("StylesheetPath", defPrefs.stylesheetPath).toString();
     //ui->splitter->restoreState(settings->value("splitter").toByteArray());
 
+#ifdef WFVIEW_IOS
+#else
     restoreGeometry(settings->value("windowGeometry").toByteArray());
     restoreState(settings->value("windowState").toByteArray());
     setWindowState(Qt::WindowActive); // Works around QT bug to returns window+keyboard focus.
+#endif
 
     if (bandbtns != Q_NULLPTR)
         bandbtns->setGeometry(settings->value("BandWindowGeometry").toByteArray());
@@ -2241,6 +2515,10 @@ void wfmain::loadSettings()
 
     udpPrefs.halfDuplex = settings->value("HalfDuplex", udpDefPrefs.halfDuplex).toBool();
 
+    settings->endGroup();
+
+    settings->beginGroup("ConnectionProfiles");
+    currentConnectionProfile = settings->value("Current", QString()).toString();
     settings->endGroup();
 
     settings->beginGroup("Server");
@@ -2839,7 +3117,7 @@ void wfmain::extChangedColPref(prefColItem i)
                                         .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
         ui->dualWatchBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
                                         .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-        ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
+        ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;border-radius: 10px;} QPushButton:checked {background-color: %1;border: 1px solid;border-radius: 10px;}")
                                         .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
         //    ui->mainSubTrackingBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
         //                                    .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
@@ -3351,6 +3629,249 @@ void wfmain::extChangedServerPref(prefServerItem i)
     }
 }
 
+QStringList wfmain::connectionProfileNames() const
+{
+    QStringList names;
+
+    settings->beginGroup("ConnectionProfiles");
+    names = settings->value("Names").toStringList();
+
+    const int count = settings->beginReadArray("Profile");
+    for (int i = 0; i < count; ++i)
+    {
+        settings->setArrayIndex(i);
+        const QString name = settings->value("Name").toString();
+        if (!name.isEmpty() && !names.contains(name))
+            names.append(name);
+    }
+    settings->endArray();
+    settings->endGroup();
+
+    return names;
+}
+
+QString wfmain::connectionProfileStorageKey(const QString& name) const
+{
+    return QString::fromLatin1(name.trimmed().toUtf8().toPercentEncoding());
+}
+
+void wfmain::refreshConnectionProfileUi()
+{
+    setupui->setConnectionProfiles(connectionProfileNames(), currentConnectionProfile);
+}
+
+void wfmain::saveConnectionProfile(const QString& name)
+{
+    const QString profileName = name.trimmed();
+    if (profileName.isEmpty())
+        return;
+
+    QStringList names = connectionProfileNames();
+    int index = names.indexOf(profileName);
+    if (index < 0)
+    {
+        names.append(profileName);
+        index = names.count() - 1;
+    }
+
+    settings->beginGroup("ConnectionProfiles");
+    settings->setValue("Names", names);
+    settings->remove("Profile");
+    settings->beginGroup("Profiles");
+    settings->beginGroup(connectionProfileStorageKey(profileName));
+    settings->setValue("Name", profileName);
+    settings->setValue("Manufacturer", static_cast<int>(prefs.manufacturer));
+    settings->setValue("RigCIVuInt", prefs.radioCIVAddr);
+    settings->setValue("CIVisRadioModel", prefs.CIVisRadioModel);
+    settings->setValue("PTTType", static_cast<int>(prefs.pttType));
+    settings->setValue("polling_ms", prefs.polling_ms);
+    settings->setValue("SerialPortRadio", prefs.serialPortRadio);
+    settings->setValue("SerialPortBaud", prefs.serialPortBaud);
+    settings->setValue("VirtualSerialPort", prefs.virtualSerialPort);
+    settings->setValue("AudioSystem", static_cast<int>(prefs.audioSystem));
+    settings->setValue("EnableLAN", prefs.enableLAN);
+    settings->setValue("IPAddress", udpPrefs.ipAddress);
+    settings->setValue("ControlLANPort", udpPrefs.controlLANPort);
+    settings->setValue("SerialLANPort", udpPrefs.serialLANPort);
+    settings->setValue("AudioLANPort", udpPrefs.audioLANPort);
+    settings->setValue("ScopeLANPort", udpPrefs.scopeLANPort);
+    settings->setValue("AdminLogin", udpPrefs.adminLogin);
+    settings->setValue("Username", udpPrefs.username);
+    settings->setValue("Password", udpPrefs.password);
+    settings->setValue("ConnectionType", static_cast<int>(udpPrefs.connectionType));
+    settings->setValue("HalfDuplex", udpPrefs.halfDuplex);
+    settings->setValue("WaterfallFormat", prefs.waterfallFormat);
+    settings->setValue("AudioRXLatency", prefs.rxSetup.latency);
+    settings->setValue("AudioTXLatency", prefs.txSetup.latency);
+    settings->setValue("AudioRXSampleRate", prefs.rxSetup.sampleRate);
+    settings->setValue("AudioRXCodec", prefs.rxSetup.codec);
+    settings->setValue("AudioTXCodec", prefs.txSetup.codec);
+    settings->setValue("AudioOutput", prefs.rxSetup.name);
+    settings->setValue("AudioInput", prefs.txSetup.name);
+    settings->endGroup();
+    settings->endGroup();
+    settings->setValue("Current", profileName);
+    settings->endGroup();
+    settings->sync();
+
+    currentConnectionProfile = profileName;
+    refreshConnectionProfileUi();
+    showStatusBarText(QString("Saved connection profile: %1").arg(profileName));
+}
+
+bool wfmain::loadConnectionProfile(const QString& name)
+{
+    const QString profileName = name.trimmed();
+    if (profileName.isEmpty())
+        return false;
+
+    bool found = false;
+    settings->beginGroup("ConnectionProfiles");
+    settings->beginGroup("Profiles");
+    settings->beginGroup(connectionProfileStorageKey(profileName));
+    found = settings->value("Name").toString() == profileName;
+    if (found)
+    {
+        prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", prefs.manufacturer).toInt());
+        prefs.radioCIVAddr = static_cast<quint16>(settings->value("RigCIVuInt", prefs.radioCIVAddr).toInt());
+        prefs.CIVisRadioModel = settings->value("CIVisRadioModel", prefs.CIVisRadioModel).toBool();
+        prefs.pttType = static_cast<pttType_t>(settings->value("PTTType", prefs.pttType).toInt());
+        prefs.polling_ms = settings->value("polling_ms", prefs.polling_ms).toInt();
+        prefs.serialPortRadio = settings->value("SerialPortRadio", prefs.serialPortRadio).toString();
+        prefs.serialPortBaud = static_cast<quint32>(settings->value("SerialPortBaud", prefs.serialPortBaud).toInt());
+        prefs.virtualSerialPort = settings->value("VirtualSerialPort", prefs.virtualSerialPort).toString();
+        prefs.audioSystem = static_cast<audioType>(settings->value("AudioSystem", prefs.audioSystem).toInt());
+        prefs.enableLAN = settings->value("EnableLAN", prefs.enableLAN).toBool();
+        udpPrefs.ipAddress = settings->value("IPAddress", udpPrefs.ipAddress).toString();
+        udpPrefs.controlLANPort = static_cast<quint16>(settings->value("ControlLANPort", udpPrefs.controlLANPort).toInt());
+        udpPrefs.serialLANPort = static_cast<quint16>(settings->value("SerialLANPort", udpPrefs.serialLANPort).toInt());
+        udpPrefs.audioLANPort = static_cast<quint16>(settings->value("AudioLANPort", udpPrefs.audioLANPort).toInt());
+        udpPrefs.scopeLANPort = static_cast<quint16>(settings->value("ScopeLANPort", udpPrefs.scopeLANPort).toInt());
+        udpPrefs.adminLogin = settings->value("AdminLogin", udpPrefs.adminLogin).toBool();
+        udpPrefs.username = settings->value("Username", udpPrefs.username).toString();
+        udpPrefs.password = settings->value("Password", udpPrefs.password).toString();
+        udpPrefs.connectionType = static_cast<connectionType_t>(settings->value("ConnectionType", udpPrefs.connectionType).toInt());
+        udpPrefs.halfDuplex = settings->value("HalfDuplex", udpPrefs.halfDuplex).toBool();
+        prefs.waterfallFormat = settings->value("WaterfallFormat", prefs.waterfallFormat).toInt();
+        prefs.rxSetup.latency = settings->value("AudioRXLatency", prefs.rxSetup.latency).toInt();
+        prefs.txSetup.latency = settings->value("AudioTXLatency", prefs.txSetup.latency).toInt();
+        prefs.rxSetup.sampleRate = settings->value("AudioRXSampleRate", prefs.rxSetup.sampleRate).toInt();
+        prefs.txSetup.sampleRate = prefs.rxSetup.sampleRate;
+        prefs.rxSetup.codec = settings->value("AudioRXCodec", prefs.rxSetup.codec).toInt();
+        prefs.txSetup.codec = settings->value("AudioTXCodec", prefs.txSetup.codec).toInt();
+        prefs.rxSetup.name = settings->value("AudioOutput", prefs.rxSetup.name).toString();
+        prefs.txSetup.name = settings->value("AudioInput", prefs.txSetup.name).toString();
+    }
+    settings->endGroup();
+    settings->endGroup();
+
+    if (!found)
+    {
+        const int count = settings->beginReadArray("Profile");
+        for (int i = 0; i < count; ++i)
+        {
+            settings->setArrayIndex(i);
+            if (settings->value("Name").toString() != profileName)
+                continue;
+
+            prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", prefs.manufacturer).toInt());
+            prefs.radioCIVAddr = static_cast<quint16>(settings->value("RigCIVuInt", prefs.radioCIVAddr).toInt());
+            prefs.CIVisRadioModel = settings->value("CIVisRadioModel", prefs.CIVisRadioModel).toBool();
+            prefs.pttType = static_cast<pttType_t>(settings->value("PTTType", prefs.pttType).toInt());
+            prefs.polling_ms = settings->value("polling_ms", prefs.polling_ms).toInt();
+            prefs.serialPortRadio = settings->value("SerialPortRadio", prefs.serialPortRadio).toString();
+            prefs.serialPortBaud = static_cast<quint32>(settings->value("SerialPortBaud", prefs.serialPortBaud).toInt());
+            prefs.virtualSerialPort = settings->value("VirtualSerialPort", prefs.virtualSerialPort).toString();
+            prefs.audioSystem = static_cast<audioType>(settings->value("AudioSystem", prefs.audioSystem).toInt());
+            prefs.enableLAN = settings->value("EnableLAN", prefs.enableLAN).toBool();
+            udpPrefs.ipAddress = settings->value("IPAddress", udpPrefs.ipAddress).toString();
+            udpPrefs.controlLANPort = static_cast<quint16>(settings->value("ControlLANPort", udpPrefs.controlLANPort).toInt());
+            udpPrefs.serialLANPort = static_cast<quint16>(settings->value("SerialLANPort", udpPrefs.serialLANPort).toInt());
+            udpPrefs.audioLANPort = static_cast<quint16>(settings->value("AudioLANPort", udpPrefs.audioLANPort).toInt());
+            udpPrefs.scopeLANPort = static_cast<quint16>(settings->value("ScopeLANPort", udpPrefs.scopeLANPort).toInt());
+            udpPrefs.adminLogin = settings->value("AdminLogin", udpPrefs.adminLogin).toBool();
+            udpPrefs.username = settings->value("Username", udpPrefs.username).toString();
+            udpPrefs.password = settings->value("Password", udpPrefs.password).toString();
+            udpPrefs.connectionType = static_cast<connectionType_t>(settings->value("ConnectionType", udpPrefs.connectionType).toInt());
+            udpPrefs.halfDuplex = settings->value("HalfDuplex", udpPrefs.halfDuplex).toBool();
+            prefs.waterfallFormat = settings->value("WaterfallFormat", prefs.waterfallFormat).toInt();
+            prefs.rxSetup.latency = settings->value("AudioRXLatency", prefs.rxSetup.latency).toInt();
+            prefs.txSetup.latency = settings->value("AudioTXLatency", prefs.txSetup.latency).toInt();
+            prefs.rxSetup.sampleRate = settings->value("AudioRXSampleRate", prefs.rxSetup.sampleRate).toInt();
+            prefs.txSetup.sampleRate = prefs.rxSetup.sampleRate;
+            prefs.rxSetup.codec = settings->value("AudioRXCodec", prefs.rxSetup.codec).toInt();
+            prefs.txSetup.codec = settings->value("AudioTXCodec", prefs.txSetup.codec).toInt();
+            prefs.rxSetup.name = settings->value("AudioOutput", prefs.rxSetup.name).toString();
+            prefs.txSetup.name = settings->value("AudioInput", prefs.txSetup.name).toString();
+            found = true;
+            break;
+        }
+        settings->endArray();
+    }
+
+    if (found)
+        settings->setValue("Current", profileName);
+    settings->endGroup();
+
+    if (!found)
+        return false;
+
+    currentConnectionProfile = profileName;
+    settings->sync();
+    prefs.settingsChanged = true;
+    serverConfig.baudRate = prefs.serialPortBaud;
+    setManufacturer(prefs.manufacturer);
+    setupui->updateRaPrefs((int)ra_all);
+    setupui->updateLanPrefs((int)l_all);
+    setupui->updateUdpPrefs((int)u_all);
+    refreshConnectionProfileUi();
+    showStatusBarText(QString("Selected connection profile: %1").arg(profileName));
+    return true;
+}
+
+void wfmain::deleteConnectionProfile(const QString& name)
+{
+    const QString profileName = name.trimmed();
+    if (profileName.isEmpty())
+        return;
+
+    QStringList names = connectionProfileNames();
+    names.removeAll(profileName);
+
+    settings->beginGroup("ConnectionProfiles");
+    settings->setValue("Names", names);
+    settings->remove("Profile");
+    settings->beginGroup("Profiles");
+    settings->remove(connectionProfileStorageKey(profileName));
+    settings->endGroup();
+
+    if (currentConnectionProfile == profileName)
+    {
+        currentConnectionProfile.clear();
+        settings->remove("Current");
+    }
+    settings->endGroup();
+    settings->sync();
+
+    refreshConnectionProfileUi();
+    showStatusBarText(QString("Deleted connection profile: %1").arg(profileName));
+}
+
+void wfmain::handleConnectionProfileSelected(QString name)
+{
+    loadConnectionProfile(name);
+}
+
+void wfmain::handleConnectionProfileSaveRequested(QString name)
+{
+    saveConnectionProfile(name);
+}
+
+void wfmain::handleConnectionProfileDeleteRequested(QString name)
+{
+    deleteConnectionProfile(name);
+}
+
 void wfmain::saveSettings()
 {
     qInfo(logSystem()) << "Saving settings to " << settings->fileName();
@@ -3387,6 +3908,8 @@ void wfmain::saveSettings()
     settings->setValue("WFInterpolate", prefs.wfInterpolate);
     settings->setValue("MainWFTheme", prefs.mainWfTheme);
     settings->setValue("SubWFTheme", prefs.subWfTheme);
+    settings->setValue("MainWfFloor", prefs.mainWfFloor);
+    settings->setValue("SubWfFloor", prefs.subWfFloor);
     settings->setValue("MainPlotFloor", prefs.mainPlotFloor);
     settings->setValue("SubPlotFloor", prefs.subPlotFloor);
     settings->setValue("MainPlotCeiling", prefs.mainPlotCeiling);
@@ -3830,10 +4353,13 @@ void wfmain::on_tuningStepCombo_currentIndexChanged(int index)
     for (auto &s: rigCaps->steps) {
         if (tsWfScrollHz == s.hz)
         {
+#ifndef WFVIEW_IOS
+            // iOS: stepSize is driven by tapping a frequency digit, not the combo.
             for (const auto& receiver: receivers)
             {
                 receiver->setStepSize(s.hz);
             }
+#endif
             queue->add(priorityImmediate,queueItem(funcTuningStep,QVariant::fromValue<uchar>(s.num),false));
         }
     }
@@ -4033,6 +4559,34 @@ void wfmain::useSystemTheme(bool checked)
     prefs.useSystemTheme = checked;
 }
 
+#ifdef WFVIEW_IOS
+// Supplemental stylesheet applied on top of the base theme on iOS to make the
+// desktop-oriented UI finger-friendly: larger touch targets and fat scrollbars.
+static QString wfview_iosTouchStyleSheet()
+{
+    return QStringLiteral(
+        "QPushButton, QToolButton { min-height: 34px; padding: 2px 4px; }"
+        "QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox, QAbstractSpinBox { min-height: 32px; }"
+        "QCheckBox::indicator, QRadioButton::indicator { width: 26px; height: 26px; }"
+        "QTabBar::tab { min-height: 36px; padding: 6px 14px; }"
+        "QScrollBar:vertical { width: 24px; }"
+        "QScrollBar:horizontal { height: 24px; }"
+        "QSlider::handle:horizontal { width: 28px; margin: -7px 0; }"
+        "QSlider::handle:vertical { height: 28px; margin: 0 -7px; }"
+        "QMenu::item { min-height: 32px; padding: 6px 24px; }"
+        // Rounded corners for the main control buttons: power on/off, transmit,
+        // tuner, CW, repeater, split and memory.
+        "QPushButton#rigPowerOnBtn, QPushButton#rigPowerOffBtn,"
+        "QPushButton#tuneNowBtn, QPushButton#cwButton,"
+        "QPushButton#rptSetupBtn, QPushButton#splitBtn, QPushButton#memoriesBtn"
+        " { border-radius: 10px; padding: 4px 10px; }"
+        // Transmit button: pale-green background at all times (crimson text is
+        // applied dynamically while transmitting).
+        "QPushButton#transmitBtn { background-color: #c8e6c9; color: #202124; font-weight: bold; border-radius: 10px; padding: 4px 10px; }"
+    );
+}
+#endif
+
 void wfmain::setAppTheme(bool isCustom)
 {
     if(isCustom)
@@ -4056,11 +4610,20 @@ void wfmain::setAppTheme(bool isCustom)
         {
             if (f.open(QFile::ReadOnly | QFile::Text)) {
                 QTextStream ts(&f);
-                qApp->setStyleSheet(ts.readAll());
+                QString sheet = ts.readAll();
+#ifdef WFVIEW_IOS
+                sheet += wfview_iosTouchStyleSheet();
+#endif
+                qApp->setStyleSheet(sheet);
             }
         }
     } else {
+#ifdef WFVIEW_IOS
+        // Even with the "system" theme, keep touch-friendly sizing on iOS.
+        qApp->setStyleSheet(wfview_iosTouchStyleSheet());
+#else
         qApp->setStyleSheet("");
+#endif
     }
 }
 
@@ -4264,6 +4827,19 @@ void wfmain::receivePTTstatus(bool pttOn)
     }
     else if (!pttOn && amTransmitting)
     {
+#ifdef WFVIEW_IOS
+        // Show only the final SWR sample after transmission/tuning has ended.
+        if (iosPendingSWRValid)
+        {
+            meter *meters[] = { ui->meter2Widget, ui->meter3Widget };
+            for (meter *m : meters)
+            {
+                if (m->getMeterType() == meterSWR)
+                    m->setLevel(iosPendingSWR);
+            }
+            iosPendingSWRValid = false;
+        }
+#endif
         pttLed->setState(QLedLabel::State::StateOk);
         pttLed->setToolTip("Receiving");
         changePrimaryMeter(false);
@@ -4281,10 +4857,15 @@ void wfmain::changeTxBtn()
 {
     if(amTransmitting)
     {
-        ui->transmitBtn->setText("Receive");
-
+        ui->transmitBtn->setText("送信中");
+        ui->transmitBtn->setStyleSheet(QStringLiteral(
+            "QPushButton { background-color: #c8e6c9; color: crimson; "
+            "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
     } else {
-        ui->transmitBtn->setText("Transmit");
+        ui->transmitBtn->setText("送信");
+        ui->transmitBtn->setStyleSheet(QStringLiteral(
+            "QPushButton { background-color: #c8e6c9; color: #202124; "
+            "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
     }
 }
 
@@ -4429,7 +5010,17 @@ void wfmain::on_freqDial_valueChanged(int value)
     // With the number of steps and direction of steps established,
     // we can now adjust the frequency:
 
-    f.Hz = roundFrequencyWithStep(receivers[currentReceiver]->getFrequency().Hz, delta, tsKnobHz);
+#ifdef WFVIEW_IOS
+    // iOS: the tuning step is chosen by tapping a frequency digit (stepSize),
+    // not the desktop step combo. Fine mode temporarily forces 1 Hz without
+    // discarding the digit-selected step used when Fine is switched off.
+    unsigned int knobStep = iosFineTuning
+                                ? 1U
+                                : (unsigned int)receivers[currentReceiver]->getStepSize();
+#else
+    unsigned int knobStep = tsKnobHz;
+#endif
+    f.Hz = roundFrequencyWithStep(receivers[currentReceiver]->getFrequency().Hz, delta, knobStep);
     f.MHzDouble = f.Hz / (double)1E6;
     if (f.Hz > 0)
     {
@@ -4443,11 +5034,6 @@ void wfmain::on_freqDial_valueChanged(int value)
         ui->freqDial->blockSignals(false);
         return;
     }
-}
-
-void wfmain::on_aboutBtn_clicked()
-{
-    abtBox->show();
 }
 
 void wfmain::gotoMemoryPreset(int presetNumber)
@@ -4529,7 +5115,9 @@ void wfmain::on_tuneNowBtn_clicked()
 
     queue->addUnique(priorityImmediate,queueItem(funcTunerStatus,QVariant::fromValue<uchar>(2U)));
     showStatusBarText("Starting ATU tuning cycle...");
-    ATUCheckTimer.setSingleShot(true);
+    atuStatusCheckPending = false;
+    atuTuneCyclePending = true;
+    atuTuneStatusChecks = 0;
     ATUCheckTimer.start(5000);
 }
 
@@ -4537,7 +5125,9 @@ void wfmain::on_tuneEnableChk_clicked(bool checked)
 {
     queue->addUnique(priorityImmediate,queueItem(funcTunerStatus,QVariant::fromValue<uchar>(checked)));
     showStatusBarText(QString("Turning %0 ATU").arg(checked?"on":"off"));
-    ATUCheckTimer.setSingleShot(true);
+    atuStatusCheckPending = false;
+    atuTuneCyclePending = false;
+    atuTuneStatusChecks = 0;
     ATUCheckTimer.start(5000);
 }
 
@@ -4652,25 +5242,40 @@ void wfmain::receiveATUStatus(quint8 atustatus)
             ui->tuneEnableChk->blockSignals(true);
             ui->tuneEnableChk->setChecked(false);
             ui->tuneEnableChk->blockSignals(false);
-            if(ATUCheckTimer.isActive())
-                showStatusBarText("ATU not enabled.");
+            if(atuStatusCheckPending) {
+                atuStatusCheckPending = false;
+                if (atuTuneCyclePending && atuTuneStatusChecks < 4) {
+                    ATUCheckTimer.start(5000);
+                } else {
+                    showStatusBarText(atuTuneCyclePending
+                                      ? QStringLiteral("ATU調整失敗（無線機のATUがOFF）")
+                                      : QStringLiteral("ATU not enabled."));
+                    atuTuneCyclePending = false;
+                    atuTuneStatusChecks = 0;
+                }
+            }
             break;
         case 0x01:
             // ATU enabled
             ui->tuneEnableChk->blockSignals(true);
             ui->tuneEnableChk->setChecked(true);
             ui->tuneEnableChk->blockSignals(false);
-            if(ATUCheckTimer.isActive())
+            if(atuStatusCheckPending || atuTuneCyclePending) {
                 showStatusBarText("ATU enabled.");
+                atuStatusCheckPending = false;
+                atuTuneCyclePending = false;
+                atuTuneStatusChecks = 0;
+                ATUCheckTimer.stop();
+            }
             break;
         case 0x02:
             // ATU tuning in-progress.
-            // Add command queue to check again and update status bar
+            // Continue checking internally. Do not leave a "tuning" message
+            // visible after the radio has already returned to receive.
             // qInfo(logSystem()) << "Received ATU status update that *tuning* is taking place";
-            showStatusBarText("ATU is Tuning...");
-            ATUCheckTimer.stop();
+            atuStatusCheckPending = false;
+            atuTuneCyclePending = true;
             ATUCheckTimer.start(5000);
-            queue->add(priorityHighest,funcTunerStatus);
             break;
         default:
             qInfo(logSystem()) << "Did not understand ATU status: " << (unsigned int) atustatus;
@@ -4680,6 +5285,14 @@ void wfmain::receiveATUStatus(quint8 atustatus)
 
 void wfmain::handleExtConnectBtn() {
     // from settings widget
+    if (connStatus == connDisconnected)
+    {
+        const QString profileName = setupui->currentConnectionProfileName();
+        if (!profileName.isEmpty() && connectionProfileNames().contains(profileName))
+        {
+            loadConnectionProfile(profileName);
+        }
+    }
     on_connectBtn_clicked();
 }
 
@@ -4808,11 +5421,100 @@ void wfmain::setRadioTimeDateSend()
     waitingToSetTimeDate = false;
 }
 
+#ifdef WFVIEW_IOS
+void wfmain::addIosBackButton(QWidget *w)
+{
+    if(!w || w->findChild<QPushButton*>("iosBackBtn"))
+        return;
+    QPushButton *b = new QPushButton(tr("← 戻る"), w);
+    b->setObjectName("iosBackBtn");
+    b->setFixedWidth(300);
+    b->setMinimumHeight(40);
+    connect(b, &QPushButton::clicked, w, [w](){ w->hide(); });
+    if(QBoxLayout *bl = qobject_cast<QBoxLayout*>(w->layout()))
+    {
+        bl->insertWidget(0, b);
+    }
+    else
+    {
+        // Non-box top layout (grid etc.): overlay at the top-left corner.
+        b->adjustSize();
+        b->move(6, 6);
+        b->raise();
+        b->show();
+    }
+}
+#endif
+
 void wfmain::showAndRaiseWidget(QWidget *w)
 {
     if(!w)
         return;
 
+#ifdef WFVIEW_IOS
+    if (w == setupui || w == selRad || w == logWindow ||
+        w == audioProcWin || w == rxAudioProcWin)
+        addIosBackButton(w);
+
+    if (iosOverlayWidget && iosOverlayWidget != w)
+        iosOverlayWidget->hide();
+
+    if (w->parentWidget() != this || w->isWindow())
+        w->setParent(this, Qt::Widget);
+
+    w->setAutoFillBackground(true);
+    w->setProperty("wfviewIosPopupRoot", true);
+    w->setAttribute(Qt::WA_StyledBackground, true);
+    if (!w->property("wfviewIosLighterPopupApplied").toBool()) {
+        w->setStyleSheet(w->styleSheet() + QStringLiteral(
+            "QWidget[wfviewIosPopupRoot=\"true\"], "
+            "QWidget[wfviewIosPopupSurface=\"true\"] { background-color: #454545; }"));
+        w->setProperty("wfviewIosLighterPopupApplied", true);
+    }
+    // Apply the lighter shade to page containers that cover the popup root,
+    // while leaving buttons, input fields and other controls unchanged.
+    const QList<QWidget *> popupChildren = w->findChildren<QWidget *>();
+    for (QWidget *child : popupChildren) {
+        const QByteArray className(child->metaObject()->className());
+        if (className == "QWidget" || className == "QFrame" ||
+            className == "QStackedWidget" || className == "QScrollArea") {
+            child->setProperty("wfviewIosPopupSurface", true);
+            child->setAttribute(Qt::WA_StyledBackground, true);
+            child->style()->unpolish(child);
+            child->style()->polish(child);
+        }
+    }
+    w->style()->unpolish(w);
+    w->style()->polish(w);
+    w->setMinimumSize(0, 0);
+    const bool isAudioProcessor = (w == audioProcWin || w == rxAudioProcWin);
+    w->setMaximumSize(w == setupui ? QSize(1200, 760)
+                                   : (isAudioProcessor ? QSize(1000, 760) : QSize(560, 470)));
+    if (w == setupui && !w->property("wfviewIosCompactFont").toBool()) {
+        QFont compactFont = w->font();
+        if (compactFont.pointSizeF() > 1.0)
+            compactFont.setPointSizeF(compactFont.pointSizeF() - 1.0);
+        w->setFont(compactFont);
+        w->setProperty("wfviewIosCompactFont", true);
+    }
+    iosOverlayWidget = w;
+    w->show();
+    // The first presentation can change the effective size when Qt activates
+    // the newly-created layout (notably TX Proc). Position only after that so
+    // the first and subsequent presentations use the same coordinates.
+    if (w->layout())
+        w->layout()->activate();
+    positionIosOverlay(w);
+    if (isAudioProcessor) {
+        QTimer::singleShot(0, this, [this, w]() {
+            if (w && w->isVisible())
+                positionIosOverlay(w);
+        });
+    }
+    w->raise();
+    w->setFocus(Qt::OtherFocusReason);
+    return;
+#endif
     if(w->isMinimized())
     {
         w->raise();
@@ -4823,6 +5525,36 @@ void wfmain::showAndRaiseWidget(QWidget *w)
     w->raise();
     w->activateWindow();
 }
+
+#ifdef WFVIEW_IOS
+void wfmain::positionIosOverlay(QWidget *w)
+{
+    if (!w)
+        return;
+
+    const QRect available = contentsRect().adjusted(8, 8, -8, -8);
+    const bool isAudioProcessor = (w == audioProcWin || w == rxAudioProcWin);
+    const QSize maximumSize = (w == setupui) ? QSize(1200, 760)
+                                             : (isAudioProcessor ? QSize(1000, 760) : QSize(560, 470));
+    QSize overlaySize = (w == setupui || isAudioProcessor) ? maximumSize : w->sizeHint();
+    if (!overlaySize.isValid())
+        overlaySize = w->size();
+
+    overlaySize.setWidth(qMin(overlaySize.width(), qMin(maximumSize.width(), available.width())));
+    overlaySize.setHeight(qMin(overlaySize.height(), qMin(maximumSize.height(), available.height())));
+    if (isAudioProcessor) {
+        // TX/RX Proc call adjustSize() while their controls are being built.
+        // A maximum size alone allows the first iOS presentation to retain
+        // that oversized geometry. Fix the overlay to the same 1000x760
+        // geometry used on later presentations; the internal scroll area
+        // handles content that does not fit.
+        w->setFixedSize(overlaySize);
+    } else {
+        w->resize(overlaySize);
+    }
+    w->move(available.center() - QPoint(w->width() / 2, w->height() / 2));
+}
+#endif
 
 void wfmain::changeSliderQuietly(QSlider *slider, int value)
 {
@@ -4858,6 +5590,27 @@ void wfmain::processModLevel(inputTypes source, quint8 level)
 
 void wfmain::receiveModInput(rigInput input, quint8 data)
 {
+#ifdef WFVIEW_IOS
+    if (prefs.enableLAN && rigCaps && !rigCaps->hasLan &&
+        (data == 0 || data == 1) && input.type != inputUSB)
+    {
+        for (const rigInput &candidate : rigCaps->inputs)
+        {
+            if (candidate.type == inputUSB)
+            {
+                const funcs sourceCommand = data == 0 ? funcDATAOffMod : funcDATA1Mod;
+                prefs.inputSource[data] = candidate;
+                queue->add(priorityImmediate, queueItem(sourceCommand,
+                           QVariant::fromValue<rigInput>(candidate), false, currentReceiver));
+                if (rigCaps->commands.contains(funcUSBModLevel))
+                    queue->add(priorityImmediate, queueItem(funcUSBModLevel,
+                               QVariant::fromValue<ushort>(204), false, currentReceiver));
+                return;
+            }
+        }
+    }
+#endif
+
     // This will ONLY fire if the input type is different to the current one
     if (currentModSrc[data].type != input.type && receivers.size())
     {
@@ -4896,10 +5649,14 @@ void wfmain::receiveTuningStep(quint8 step)
             if (step == s.num && ui->tuningStepCombo->currentData().toUInt() != s.hz) {
                 qDebug(logSystem()) << QString("Received new Tuning Step %0").arg(s.name);
                 ui->tuningStepCombo->setCurrentIndex(ui->tuningStepCombo->findData(s.hz));
+#ifndef WFVIEW_IOS
+                // iOS: stepSize is driven by tapping a frequency digit, so don't
+                // let the rig's reported tuning step override it.
                 for (const auto& receiver: receivers)
                 {
                     receiver->setStepSize(s.hz);
                 }
+#endif
                 break;
             }
         }
@@ -4908,6 +5665,19 @@ void wfmain::receiveTuningStep(quint8 step)
 
 void wfmain::receiveMeter(meter_t inMeter, double level)
 {
+#ifdef WFVIEW_IOS
+    if (inMeter == meterSWR)
+    {
+        // Keep collecting samples while transmitting, but update the meter
+        // only once with the final sample when receivePTTstatus() returns to RX.
+        if (amTransmitting)
+        {
+            iosPendingSWR = level;
+            iosPendingSWRValid = true;
+        }
+        return;
+    }
+#endif
 
     switch(inMeter)
     {
@@ -5427,7 +6197,7 @@ void wfmain::on_radioStatusBtn_clicked()
     }
     else
     {
-        selRad->show();
+        showAndRaiseWidget(selRad);
     }
 }
 
@@ -5464,7 +6234,7 @@ void wfmain::useColorPreset(colorPrefsType *cp)
                                     .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
     ui->dualWatchBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
                                     .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
+    ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;border-radius: 10px;} QPushButton:checked {background-color: %1;border: 1px solid;border-radius: 10px;}")
                                     .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
     //ui->mainSubTrackingBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
     //                                .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
@@ -5491,15 +6261,7 @@ void wfmain::setDefaultColorPresets()
 
 void wfmain::on_showLogBtn_clicked()
 {
-    if(logWindow->isMinimized())
-    {
-        logWindow->raise();
-        logWindow->activateWindow();
-        return;
-    }
-    logWindow->show();
-    logWindow->raise();
-    logWindow->activateWindow();
+    showAndRaiseWidget(logWindow);
 }
 
 void wfmain::initLogging()
@@ -5795,9 +6557,7 @@ void wfmain::on_TXaudioProcBtn_clicked()
                     audioProcWin, &AudioProcessingWidget::onSpectrumBins);
         }
     }
-    audioProcWin->show();
-    audioProcWin->raise();
-    audioProcWin->activateWindow();
+    showAndRaiseWidget(audioProcWin);
 }
 
 void wfmain::onAudioProcPrefsChanged(txAudioProcessingPrefs p)
@@ -5888,9 +6648,7 @@ void wfmain::on_RXaudioProcBtn_clicked()
                     rxAudioProcWin, &RxAudioProcessingWidget::onDebugCaptureComplete);
         }
     }
-    rxAudioProcWin->show();
-    rxAudioProcWin->raise();
-    rxAudioProcWin->activateWindow();
+    showAndRaiseWidget(rxAudioProcWin);
 }
 
 void wfmain::onRxAudioProcPrefsChanged(rxAudioProcessingPrefs p)
@@ -6648,6 +7406,8 @@ void wfmain::receiveScopeSettings(uchar receiver, int theme, quint16 len, int fl
         prefs.subWflength = len;
         prefs.subPlotFloor = floor;
         prefs.subPlotCeiling = ceiling;
+        if (receiver < receivers.size())
+            receivers[receiver]->setWfRange(prefs.subWfFloor, ceiling);
     }
     else
     {
@@ -6655,6 +7415,8 @@ void wfmain::receiveScopeSettings(uchar receiver, int theme, quint16 len, int fl
         prefs.mainWflength = len;
         prefs.mainPlotFloor = floor;
         prefs.mainPlotCeiling = ceiling;
+        if (!receivers.isEmpty())
+            receivers[0]->setWfRange(prefs.mainWfFloor, ceiling);
     }
 }
 
@@ -6698,6 +7460,45 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
         qDebug(logSystem()) << "Rig ID received into wfmain: hasSpectrum: " << rigCaps->hasSpectrum;
 
         configureVFOs(); // Now we have a rig connection, need to configure the VFOs
+
+#ifdef WFVIEW_IOS
+        // Remote audio for radios without a native LAN modulation input (for
+        // example IC-7300 via wfserver) reaches the radio through USB. Select
+        // the matching modulation source instead of leaving it on MIC.
+        if (prefs.enableLAN)
+        {
+            rigInput preferredInput;
+            const inputTypes requiredType = rigCaps->hasLan ? inputLAN : inputUSB;
+            for (const rigInput &input : rigCaps->inputs)
+            {
+                if (input.type == requiredType)
+                {
+                    preferredInput = input;
+                    break;
+                }
+            }
+
+            if (preferredInput.type == inputLAN || preferredInput.type == inputUSB)
+            {
+                prefs.inputSource[0] = preferredInput;
+                prefs.inputSource[1] = preferredInput;
+                if (rigCaps->commands.contains(funcDATAOffMod))
+                    queue->add(priorityImmediate, queueItem(funcDATAOffMod,
+                               QVariant::fromValue<rigInput>(preferredInput), false, currentReceiver));
+                if (rigCaps->commands.contains(funcDATA1Mod))
+                    queue->add(priorityImmediate, queueItem(funcDATA1Mod,
+                               QVariant::fromValue<rigInput>(preferredInput), false, currentReceiver));
+
+                // Ensure the selected remote modulation input is not muted.
+                const funcs levelCommand = requiredType == inputLAN
+                                               ? funcLANModLevel
+                                               : funcUSBModLevel;
+                if (rigCaps->commands.contains(levelCommand))
+                    queue->add(priorityImmediate, queueItem(levelCommand,
+                               QVariant::fromValue<ushort>(204), false, currentReceiver));
+            }
+        }
+#endif
 
         rigName->setText(rigCaps->modelName);
         if (serverConfig.enabled) {
@@ -6885,6 +7686,8 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
 
         ui->tuningStepCombo->setCurrentIndex(2);
         ui->tuningStepCombo->blockSignals(false);
+        // Keep hidden after the model is rebuilt for the current rig.
+        ui->tuningStepCombo->hide();
 
         setupui->updateModSourceList(0, rigCaps->inputs);
 
@@ -7094,6 +7897,10 @@ void wfmain::enableControls(bool en)
     ui->freqDial->setEnabled(en);
     ui->tuningStepCombo->setEnabled(en);
     ui->tuneLockChk->setEnabled(en);
+#ifdef WFVIEW_IOS
+    if (iosLockButton != nullptr)
+        iosLockButton->setEnabled(en);
+#endif
     ui->ritEnableChk->setEnabled(en);
     ui->ritTuneDial->setEnabled(en);
     ui->afGainSlider->setEnabled(en);

@@ -372,12 +372,14 @@ void icomServer::controlReceived()
                     if (radio->txAudioSetup.type == qtAudio) {
                         radio->txaudio = new audioHandlerQtOutput();
                     }
+#ifndef WFVIEW_IOS
                     else if (radio->txAudioSetup.type == portAudio) {
                         radio->txaudio = new audioHandlerPaOutput();
                     }
                     else if (radio->txAudioSetup.type == rtAudio) {
                         radio->txaudio = new audioHandlerRtOutput();
                     }
+#endif
                     else
                     {
                         qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!";
@@ -421,12 +423,14 @@ void icomServer::controlReceived()
                     if (radio->rxAudioSetup.type == qtAudio) {
                         radio->rxaudio = new audioHandlerQtInput();
                     }
+#ifndef WFVIEW_IOS
                     else if (radio->rxAudioSetup.type == portAudio) {
                         radio->rxaudio = new audioHandlerPaInput();
                     }
                     else if (radio->rxAudioSetup.type == rtAudio) {
                         radio->rxaudio = new audioHandlerRtInput();
                     }
+#endif
                     else
                     {
                         qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!";

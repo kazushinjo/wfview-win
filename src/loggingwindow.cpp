@@ -185,7 +185,10 @@ void loggingWindow::on_openDirBtn_clicked()
     cmd = "open";
 #endif
     arg += QDir::toNativeSeparators(dir.canonicalFilePath());;
+#ifndef WFVIEW_IOS
+    // iOS sandboxes apps and has no QProcess; opening a file manager is N/A.
     rtn = QProcess::startDetached(cmd, arg);
+#endif
     if(!rtn)
         qInfo(logLogger()) << "Error, open log directory" << logDirectory << "command failed";
 }
@@ -201,7 +204,9 @@ void loggingWindow::on_openLogFileBtn_clicked()
 #else
     cmd = "open";
 #endif
+#ifndef WFVIEW_IOS
     rtn = QProcess::startDetached(cmd, { logFilename });
+#endif
     if(!rtn)
         qInfo(logLogger()) << "Error, open log file command failed";
 }

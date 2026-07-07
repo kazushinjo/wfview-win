@@ -49,8 +49,12 @@ bool audioHandlerQtOutput::openDevice() noexcept
 void audioHandlerQtOutput::closeDevice() noexcept
 {
     if (audioOutput) {
+        if (audioDevice) {
+            disconnect(audioDevice, nullptr, this, nullptr);
+        }
         if (audioOutput->state() != QAudio::StoppedState) audioOutput->stop();
-        audioOutput->deleteLater();
+        disconnect(audioOutput, nullptr, nullptr, nullptr);
+        delete audioOutput;
         audioOutput = nullptr;
     }
     audioDevice = nullptr;

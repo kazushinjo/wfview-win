@@ -2,6 +2,7 @@
 
 #include "audioprocessingwidget.h"
 #include "logcategories.h"
+#include <QScrollArea>
 #include <cmath>
 
 // MBEQ band centre frequencies (Hz) — must match MbeqProcessor::bandFreqs
@@ -22,7 +23,14 @@ AudioProcessingWidget::AudioProcessingWidget(QWidget* parent)
     : QDialog(parent)
 {
     setWindowTitle(tr("TX Audio Processing"));
+#ifdef WFVIEW_IOS
+    // Create the iPad panel as an embedded widget from the outset. Converting
+    // a top-level QDialog on its first show leaves iOS using a different
+    // initial window position than subsequent overlay presentations.
+    setWindowFlags(Qt::Widget);
+#else
     setWindowFlags(windowFlags() | Qt::Window);
+#endif
     buildUi();
     connect(&m_specDiagTimer, &QTimer::timeout,
             this, &AudioProcessingWidget::onSpecDiagTimer);
@@ -277,7 +285,19 @@ void AudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
 
 void AudioProcessingWidget::buildUi()
 {
+#ifdef WFVIEW_IOS
+    auto* outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    auto* scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    auto* content = new QWidget;
+    auto* mainLayout = new QVBoxLayout(content);
+    scroll->setWidget(content);
+    outerLayout->addWidget(scroll, 1);
+#else
     auto* mainLayout = new QVBoxLayout(this);
+#endif
 
     // ── Master bypass ────────────────────────────────────────────────────────
     {

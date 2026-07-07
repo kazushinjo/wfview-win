@@ -12,11 +12,14 @@
 
 #include <QFontMetrics>
 
+// PortAudio and RtAudio are desktop-only. iOS uses the Qt Multimedia backend.
+#ifndef WFVIEW_IOS
 #include <portaudio.h>
 #ifndef Q_OS_LINUX
 #include "RtAudio.h"
 #else
 #include "rtaudio/RtAudio.h"
+#endif
 #endif
 
 #include "wfviewtypes.h"

@@ -44,6 +44,8 @@ public:
     void changeWfLength(uint wf);
     bool updateScope(scopeData spectrum);
     void setRange(int floor, int ceiling);
+    // Set only the waterfall colour range, independent of the spectrum plot floor.
+    void setWfRange(int floor, int ceiling);
     void wfInterpolate(bool en) { colorMap->setInterpolate(en); }
     void wfAntiAliased(bool en) { colorMap->setAntialiased(en); }
     void wfTheme(int num);
@@ -82,7 +84,7 @@ public:
 
     void setIFShift (uchar val);
 
-    quint16 getStepSize () { return stepSize;}
+    quint64 getStepSize () { return stepSize;}
     void setStepSize (quint64 hz) { stepSize = hz;}
 
     freqt getFrequency () { return freq;}
@@ -102,7 +104,7 @@ public:
     void setTracking(bool en) { tracking=en; }
     void setRef(int ref);
     void setRefLimits(int lower, int upper);
-    void setFreqLock( bool en) { freqLock = en; }
+    void setFreqLock(bool en);
     void setRoofing(uchar val);
     void setFilterShape(uchar val);
     void setScopeEnabled(bool en) { this->configScopeEnabled->setEnabled(en);};
@@ -143,8 +145,9 @@ public slots: // Can be called directly or updated via signal/slot
     void receiveSpots(uchar receiver, QList<spotData> spots);
     void memoryMode(bool en);
 
+protected:
 
-signals:    
+signals:
     void frequencyRange(uchar receiver, double start, double end);
     void updateScopeMode(uchar index);
     void updateSpan(centerSpanData s);
@@ -157,6 +160,7 @@ signals:
     void waterfallTime(double time);
     void sendScopeImage(uchar receiver);
     void sendTrack(int f);
+    void stepSizeSelected(uchar receiver, quint64 hz);
 
 private slots:
     void detachScope(bool state);
@@ -199,10 +203,10 @@ private:
     QLinearGradient spectrumGradient;
     QLinearGradient underlayGradient;
     QList <freqCtrl*> freqDisplay;
-    QPushButton* freqUpButton = nullptr;
-    QPushButton* freqDownButton = nullptr;
     QSpacerItem* displayLSpacer;
     QPushButton* vfoSelectButton;
+    QPushButton* freqUpButton;
+    QPushButton* freqDownButton;
     QSpacerItem* displayCSpacer;
     QPushButton* vfoSwapButton;
     QPushButton* vfoEqualsButton;

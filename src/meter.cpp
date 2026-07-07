@@ -112,6 +112,12 @@ void meter::clearMeterOnPTTtoggle()
     // not to clear meters that don't make sense to clear (such as Vd and Id)
 
 
+#ifdef WFVIEW_IOS
+    // Preserve the last measured SWR when transmission ends on iPad.
+    if (meterType == meterSWR)
+        return;
+#endif
+
     if( (meterType == meterALC) || (meterType == meterSWR)
             || (meterType == meterComp) || (meterType == meterTxMod)
             || (meterType == meterCenter ))
@@ -554,6 +560,41 @@ void meter::drawValue_Linear(QPainter *qp, bool reverse) {
     this->setAccessibleName(QString("Meter: %1 percent").arg( (int)(100*(double)(currentRect/255.0))));
 
     if(currentRect < 0) {
+        return;
+    }
+
+    if (meterType == meterSWR && !reverse)
+    {
+        const int redLineRect = getPixelScaleFromValue(scaleRedline);
+        const int blueWidth = qBound(0, qMin(currentRect, redLineRect), 255);
+
+        qp->setPen(currentColor);
+        qp->setBrush(currentColor);
+        qp->drawRect(mXstart, mYstart, blueWidth, barHeight);
+
+        if (current >= scaleRedline && currentRect > redLineRect)
+        {
+            qp->setPen(Qt::red);
+            qp->setBrush(Qt::red);
+            qp->drawRect(mXstart + redLineRect, mYstart,
+                         currentRect - redLineRect, barHeight);
+        }
+
+        qp->setPen(average >= scaleRedline ? Qt::red : averageColor);
+        qp->setBrush(average >= scaleRedline ? Qt::red : averageColor);
+        qp->drawRect(mXstart + averageRect - 1, mYstart, 1, barHeight);
+
+        qp->setPen(peak >= scaleRedline ? Qt::red : peakColor);
+        qp->setBrush(peak >= scaleRedline ? Qt::red : peakColor);
+        qp->drawRect(mXstart + peakRect - 1, mYstart, 2, barHeight);
+
+        QFont valueFont = qp->font();
+        valueFont.setBold(true);
+        qp->setFont(valueFont);
+        qp->setPen(Qt::white);
+        qp->drawText(QRect(mXstart, mYstart, 255, barHeight),
+                     Qt::AlignCenter,
+                     QStringLiteral("SWR %1").arg(current, 0, 'f', 1));
         return;
     }
 

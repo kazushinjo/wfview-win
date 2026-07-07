@@ -1,154 +1,97 @@
-# wfview
+# wfview-mac
 
+`wfview-mac` は、Icom / Kenwood / Yaesu などのアマチュア無線機を macOS から操作するための wfview 派生版です。
+このリポジトリでは macOS 向けのアプリ名、アイコン、操作 UI、周波数操作、ウォーターフォール調整を調整しています。
 
-[wfview](https://gitlab.com/eliggett/wfview) is an open-soure Ham Radio control application, serving both modern SDR and SDR-hybrid type radios as well as a variety of older radios. Wfview supports modern Kenwood, Icom, and Yaesu radios, and runs on Linux, macOS, and Windows operating systems.
-
-website - [WFVIEW](https://wfview.org/) wfview.org
-
-source code: [gitlab](https://gitlab.com/eliggett/wfview/)
+元プロジェクト: [wfview](https://gitlab.com/eliggett/wfview)
+公式サイト: [wfview.org](https://wfview.org/)
 
 ![wfview screenshot](screenshots/wfview-main.png)
 
-**For screenshots, documentation, User FAQ, Programmer FAQ, and more, please [see the project's website, wfview.org](https://wfview.org/).**
+## この版の主な変更点
 
-Links for Users: 
-- [Getting Started](https://wfview.org/wfview-user-manual/getting-started/)
-- [FAQ](https://wfview.org/wfview-user-manual/faq/)
-- [User Manual](https://wfview.org/wfview-user-manual/)
-- [Support Forum](https://forum.wfview.org/)
-- [Patreon](https://www.patreon.com/wfview)
+- アプリケーション名を `wfview-mac` に変更。
+- macOS アプリのアイコンを wfview-iPad と同じアイコンに統一。
+- 送信、TUNE、CW、Rpt/Split、Memories、Power On / Off、Split など主要操作ボタンを角丸表示に変更。
+- `送信` ボタンは薄緑色の背景で表示し、送信中は `送信中` の文字を赤で表示。
+- RF / AF / SQL などのスライダー群に `WF` スライダーを追加。ウォーターフォールの表示レベルをアプリ上から調整できます。
+- 起動時に保存済みの WF レベルが反映されます。
+- 周波数表示の桁をクリックすると、その桁が周波数アップ / ダウンのステップになります。
+- VFO A / B 表示の横に周波数ダウン `▼` と周波数アップ `▲` ボタンを追加。
+- 周波数アップ / ダウンボタンは長押しで連続操作できます。
+- 周波数ロック中は周波数アップ / ダウンボタンが無効化され、誤操作を防ぎます。
+- ダイアル下のステップ周波数プルダウンは非表示にし、周波数表示の桁クリックでステップを選ぶ操作に統一。
+- バンド選択ボタンと周波数入力ポップアップを小型化。
+- 起動時はメイン画面を最大化して表示。
+- Settings の `Connection Profile` で複数の接続設定を保存、選択、削除できます。
+- `Connect` 実行時は、選択中の保存済みプロファイルを読み込み直してから接続します。
+- 終了時に発生していた Qt audio 系のクラッシュを回避。
 
-Links for Developers: 
-- [Developer's Corner](https://wfview.org/developers/)
-- [Compiler Script for Debian-based Linux](https://gitlab.com/eliggett/scripts/-/blob/master/fullbuild-wfview.sh)
-- [Public Automated Builds](https://wfview.org/developers/)
-- [Source Code](https://gitlab.com/eliggett/wfview/)
-- [GitHub beta builds (macOS and linux AppImage)](https://github.com/eliggett/wfview/releases)
+## インストール
 
+ビルド済みアプリを使う場合は、`wfview-mac.app` を `/Applications` に配置して起動します。
 
-wfview is copyright 2017-2026 Elliott H. Liggett (W6EL) and Phil Taylor (M0VSE). All rights reserved. wfview source code is licensed via the GNU GPLv3.
+ローカルでビルドする場合は [BUILD_MACOS.md](BUILD_MACOS.md) を参照してください。
+このリポジトリの現在の作業環境では、Apple Silicon 向けに `make ARCHS=arm64 -j4` でビルドしています。
 
-## Credits and 3rd party code
+## 基本操作
 
-Source code and issues managed by Roeland Jansen, PA3MET 
+1. `/Applications/wfview-mac.app` を起動します。
+2. `Settings` で無線機、接続方式、ポート、CI-V アドレスなどを設定します。
+3. `Connect` で無線機に接続します。
+4. 必要に応じて `Power On` で無線機の電源を入れます。
+5. 周波数表示の桁をクリックしてステップ周波数を選択します。
+6. VFO 表示横の `▼` / `▲` で、選択した桁のステップ幅だけ周波数を下げる / 上げることができます。ボタンを押したままにすると連続して変化します。
+7. `送信`、`TUNE`、`CW`、`Rpt/Split`、`Memories`、`Split` などのボタンで運用操作を行います。`送信` ボタンは薄緑色で、送信中は `送信中` の文字が赤になります。
 
-Testing and development mentorship from Jim Nijkamp, PA8E.
+詳しい操作は [操作説明書](docs/操作説明書.md) または [Word 版操作説明書](docs/wfview-mac_操作説明書.docx) を参照してください。
 
-Special thanks to Tony Collen, N0RUA/AE0KW (SK), for his work on open890, which was the inspiration for our support of the Kenwood TS-890. 
+## 接続プロファイル
 
-Special thanks to our translators:
-- Siwij Cat TA1YEP (Turkish)
-- OK2HAM (Czech)
-- JG3HLX (Japanese)
-- Dawid SQ6EMM (Polish)
-- Jim PA8E (Dutch)
-- David Acacio EA3IPX (Spanish)
+Settings の `Connection Profile` では、接続設定を名前付きプロファイルとして複数保存できます。
 
-The developers of wfview wish to thank the many contributions from the wfview community at-large, including ideas, bug reports, and fixes.
+- プロファイル名を入力して `Save` を押すと、現在の接続設定を保存します。
+- 既存プロファイルを選択すると、保存されている接続情報が入力欄へ反映されます。
+- 同じ名前で `Save` すると上書き保存します。
+- `Delete` で選択中のプロファイルを削除します。
+- `Connect` を押すと、選択中の保存済みプロファイルを読み込み直してから接続します。
 
-Stylesheet qdarkstyle used under MIT license, stored in /usr/share/wfview/stylesheets/. 
+保存対象には、メーカー、CI-V アドレス、シリアルポート、ボーレート、LAN 有効 / 無効、IP アドレス、各 LAN ポート、接続タイプ、ユーザー名、音声設定などが含まれます。
 
-Speex Resample library and DSP noise reduction code Copyright 2003-2008 Jean-Marc Valin 
+## 周波数ステップ操作
 
-RT Audio, from Gary P. Scavone
+周波数表示の任意の桁をクリックすると、その桁が現在のステップ周波数になります。
+例えば 100 Hz の桁をクリックした後に `▲` を押すと 100 Hz 上がり、`▼` を押すと 100 Hz 下がります。
+VFO A / B 表示の横にある `▲` / `▼` ボタンを押したままにすると、選択中のステップ幅で連続してアップ / ダウンします。
+周波数ロック中は `▲` / `▼` ボタンがグレーアウトし、周波数変更はできません。
 
-Port Audio, from The Port Audio Community
+従来のステップ周波数プルダウンは表示から外しています。内部状態の同期には残していますが、通常操作では周波数表示の桁クリックを使ってください。
 
-Special thanks to Norbert Varga (HA2NON), Akos Marton (ES1AKOS), and the nonoo/kappanhang team for their initial work on the OEM Icom protocol.
+## ウォーターフォール表示
 
-Many thanks to KB3MMW who assisted with the reverse enginering of the Yaesu LAN protocol. Portions of his code which he has released under LGPL/GPL have been integrated within wfview Forum post
+`WF` スライダーでウォーターフォールの色レベルを調整できます。
+値は保存され、次回起動時にも反映されます。
 
-The waterfall and spectrum plot graphics use QCustomPlot, from Emanuel Eichhammer
+## 注意
 
-Dyson Compressor (c) 1996, John S. Dyson. Redistribution of the Dyson Compressor requires this copyright notice.
+- 実際に送信する前に、無線機、アンテナ、ダミーロード、出力設定、周波数、モードを確認してください。
+- `送信` と `TUNE` は無線機を送信状態にする操作です。誤操作を避けるため、運用前に接続先とバンドを必ず確認してください。
+- 無線機の機種や対応コマンドによって、一部のボタンや機能は表示されない、または無効になることがあります。
 
-Multiband EQ, "Triple Para EQ" and Gate 1410 processors (c) Steve Harris, GNU/GPL licensed.
+## 関連ドキュメント
 
-PocketFFT is from Martin Reinecke and used under a BSD 3-Clause New or Revised License. It is (c) 2010-2019 Max-Planck-Society and is based on FFT Pack (FORTRAN) which was written by Paul N. Swarztrauber in 1985, and is copyright by the National Center for Atmospheric Research, Boulder, CO
+- [操作説明書](docs/操作説明書.md)
+- [Word 版操作説明書](docs/wfview-mac_操作説明書.docx)
+- [macOS ビルドガイド](BUILD_MACOS.md)
+- [インストール情報](INSTALL.md)
+- [wfserver 情報](WFSERVER.md)
 
-Audacity Noise Reduction algorithm from here is from Dominic Mazzoni, rewritten by Paul Licameli, with modifications for wfview's streaming usage. The license is GNU/GPL.
+## ライセンス
 
-wfview contains our own implementation of the Hamlib rigctl protocol which uses portions of code from Hamlib, which are Copyright (C) 2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012 The Hamlib Group
+wfview は 2017-2026 Elliott H. Liggett (W6EL) および Phil Taylor (M0VSE) による著作物です。
+ソースコードは GNU GPLv3 ライセンスで提供されています。
 
-wfview contains the adpcm-xq audio encoder/decoder - Copyright (c) David Bryant All rights reserved.
+## クレジット
 
-Speex copyright notice:
-Copyright (C) 2003 Jean-Marc Valin
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions
-are met:
-- Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
-- Redistributions in binary form must reproduce the above copyright
-notice, this list of conditions and the following disclaimer in the
-documentation and/or other materials provided with the distribution.
-- Neither the name of the Xiph.org Foundation nor the names of its
-contributors may be used to endorse or promote products derived from
-this software without specific prior written permission.
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-/** Frequency controller widget (originally from CuteSDR)
-*
-* This code is used within wfview and was modified
-* You can download the source code from here: 
-* https://gitlab.com/eliggett/wfview/
-*
-* Copyright 2010 Moe Wheatley AE4JY 
-* Copyright 2012-2017 Alexandru Csete OZ9AEC
-* Copyright 2024 Phil Taylor M0VSE
-* All rights reserved.
-*
-* This software is released under the "Simplified BSD License".
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*
-* 1. Redistributions of source code must retain the above copyright notice,
-*    this list of conditions and the following disclaimer.
-*
-* 2. Redistributions in binary form must reproduce the above copyright notice,
-*    this list of conditions and the following disclaimer in the documentation
-*    and/or other materials provided with the distribution.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-* AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-* IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-* ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-* LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-* CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-* ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-* POSSIBILITY OF SUCH DAMAGE.
-*/
-
-/**
-* FT4222 support library (for FT-710 SPI support)
-*
-* Copyright (c) 2001-2015 Future Technology Devices International Limited
-*
-* THIS SOFTWARE IS PROVIDED BY FUTURE TECHNOLOGY DEVICES INTERNATIONAL LIMITED "AS IS"
-* AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-* OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-* FUTURE TECHNOLOGY DEVICES INTERNATIONAL LIMITED BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-* SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
-* OF SUBSTITUTE GOODS OR SERVICES LOSS OF USE, DATA, OR PROFITS OR BUSINESS INTERRUPTION)
-* HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
-* TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-* EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*
-* FTDI DRIVERS MAY BE USED ONLY IN CONJUNCTION WITH PRODUCTS BASED ON FTDI PARTS.
-*
-* FTDI DRIVERS MAY BE DISTRIBUTED IN ANY FORM AS LONG AS LICENSE INFORMATION IS NOT MODIFIED.
-*/
+このリポジトリは wfview プロジェクトを元にしています。
+QCustomPlot、PortAudio、RtAudio、Speex、Opus、Hamlib 由来コード、Audacity Noise Reduction 由来コードなど、元プロジェクトで利用されている各ライブラリと貢献者に謝意を表します。詳細は元 wfview プロジェクトのドキュメントとソース内の著作権表記を参照してください。

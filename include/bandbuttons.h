@@ -27,7 +27,7 @@ public:
     void setRegion(QString reg) { region=reg; }
 
     QByteArray getGeometry() { return saveGeometry();};
-    void setGeometry(QByteArray g) { restoreGeometry(g);};
+    void setGeometry(QByteArray g);
 
     availableBands currentBand() {return requestedBand;};
 
@@ -95,6 +95,7 @@ private:
     void setUIToRig();
     void showButton(QPushButton *b);
     void hideButton(QPushButton *b);
+    void applyCompactSize();
     char bandStkRegCode;
     freqt currentFrequency;
     modeInfo currentMode;

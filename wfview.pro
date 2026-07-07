@@ -4,13 +4,17 @@
 #
 #-------------------------------------------------
 
-QT       += core gui serialport network multimedia xml
+QT       += core gui network multimedia xml
+# iOS has no qtserialport module; a compatible stub in ios/compat provides
+# QSerialPort so the shared code compiles. Desktop platforms use the real module.
+!ios: QT += serialport
 
 #QT += sql
 #DEFINES += USESQL
 
 #Uncomment The following line to enable USB controllers (Shuttle/RC-28 etc.)
-DEFINES += USB_CONTROLLER
+# USB/HID controllers and FTDI are unavailable on iOS.
+!ios: DEFINES += USB_CONTROLLER
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets
 
@@ -19,6 +23,7 @@ contains(DEFINES,USB_CONTROLLER){
 }
 
 TARGET = wfview
+macos: TARGET = wfview-mac
 TEMPLATE = app
 
 # VERSION can be overridden on the qmake command line, e.g.:
@@ -70,22 +75,25 @@ win32:DEFINES += __WINDOWS_WASAPI__
 #linux:DEFINES += __LINUX_ALSA__
 #linux:DEFINES += __LINUX_OSS__
 linux:DEFINES += __LINUX_PULSE__
-macx:DEFINES += __MACOSX_CORE__
-!linux:SOURCES += ../rtaudio/RTAudio.cpp
-!linux:HEADERS += ../rtaudio/RTAudio.h
-!linux:INCLUDEPATH += ../rtaudio
+macos:DEFINES += __MACOSX_CORE__
+# RtAudio and PortAudio are desktop-only. iOS uses the Qt Multimedia backend.
+!linux:!ios:SOURCES += ../rtaudio/RTAudio.cpp
+!linux:!ios:HEADERS += ../rtaudio/RTAudio.h
+!linux:!ios:INCLUDEPATH += ../rtaudio
 
 linux:LIBS += -lpulse -lpulse-simple -lrtaudio -lpthread -ludev
 
 win32:INCLUDEPATH += ../portaudio/include
-!win32:LIBS += -lportaudio
+!win32:!ios:LIBS += -lportaudio
 
 # The following define makes your compiler emit warnings if you use
 # any feature of Qt which as been marked as deprecated (the exact warnings
 # depend on your compiler). Please consult the documentation of the
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
-DEFINES += QCUSTOMPLOT_USE_LIBRARY
+# Desktop links the prebuilt QCustomPlot shared library. iOS has no such
+# prebuilt lib, so we compile QCustomPlot straight into the app (see ios block).
+!ios: DEFINES += QCUSTOMPLOT_USE_LIBRARY
 
 # These defines are used for the resampler
 equals(QT_ARCH, i386): win32:DEFINES += USE_SSE
@@ -109,12 +117,13 @@ isEmpty(PREFIX) {
 
 DEFINES += PREFIX=\\\"$$PREFIX\\\"
 
-macx:INCLUDEPATH += /usr/local/include
-macx:LIBS += -L/usr/local/lib
+# Homebrew (desktop) headers/libs must not leak into the iOS build.
+macos:INCLUDEPATH += /usr/local/include
+macos:LIBS += -L/usr/local/lib
 
 win32:RC_ICONS = "resources/icons/Windows/wfview 512x512.ico"
 
-macx{
+macos{
     ICON = resources/wfview.icns
     QMAKE_MACOSX_DEPLOYMENT_TARGET = 12.0
     QMAKE_APPLE_DEVICE_ARCHS = x86_64 arm64
@@ -125,6 +134,68 @@ macx{
     rigFiles.files = rigs
     rigFiles.path = Contents/Resources
     QMAKE_BUNDLE_DATA += rigFiles
+}
+
+# ---------------------------------------------------------------------------
+# iOS / iPadOS build (network-only: Icom LAN / wfserver). No serial, USB, HID,
+# PortAudio or RtAudio. Audio uses the Qt Multimedia backend. QCustomPlot and
+# opus are bundled locally under ios/.
+# ---------------------------------------------------------------------------
+ios {
+    DEFINES += WFVIEW_IOS
+    QMAKE_IOS_DEPLOYMENT_TARGET = 14.0
+
+    # Xcode 26 SDK + Qt 6.8: qyieldcpu.h calls the __yield ARM builtin but the
+    # SDK trips clang's implicit-declaration check. It is a real builtin, so
+    # just stop treating that (spurious) diagnostic as an error.
+    QMAKE_CFLAGS   += -Wno-error=implicit-function-declaration
+    QMAKE_CXXFLAGS += -Wno-error=implicit-function-declaration
+
+    # Use only the native AVFoundation/CoreAudio ("darwin") multimedia backend.
+    # The FFmpeg plugin would otherwise be auto-imported, but its .prl omits the
+    # bundled libav* frameworks so it fails to link (and wfview only needs raw
+    # PCM QAudioSink/QAudioSource anyway).
+    QTPLUGIN.multimedia = darwinmediaplugin
+
+    # QtSerialPort compatibility stub (must precede system includes).
+    INCLUDEPATH = ios/compat $$INCLUDEPATH
+    HEADERS += ios/compat/qserialport.h ios/compat/qserialportinfo.h
+
+    # Locally cross-compiled opus (arm64 device).
+    INCLUDEPATH += ios/include ios/include/opus
+
+    # Eigen is header-only; use a local symlink to avoid pulling Homebrew's
+    # /opt/homebrew/include onto the search path (its Qt headers would shadow
+    # and corrupt the iOS Qt framework headers). ios/include covers the
+    # <eigen3/Eigen/...> form, ios/include/eigen3 the <Eigen/...> form.
+    INCLUDEPATH += ios/include/eigen3
+    LIBS += $$PWD/ios/lib/libopus.a
+
+    # QCustomPlot compiled directly into the app.
+    INCLUDEPATH += ../qcustomplot
+    SOURCES += ../qcustomplot/qcustomplot.cpp
+    HEADERS += ../qcustomplot/qcustomplot.h
+
+    # Native AVAudioSession setup (Bluetooth HFP mic + output).
+    INCLUDEPATH += ios
+    OBJECTIVE_SOURCES += ios/iosaudiosession.mm
+    HEADERS += ios/iosaudiosession.h
+    LIBS += -framework AVFoundation -framework Foundation
+
+    QMAKE_INFO_PLIST = ios/Info.plist
+    QMAKE_ASSET_CATALOGS += ios/Assets.xcassets
+    QMAKE_ASSET_CATALOGS_APP_ICON = AppIcon
+
+    # Use the qmake-native launch-screen mechanism (avoids a duplicate
+    # storyboard-compile command in the generated Xcode project).
+    QMAKE_IOS_LAUNCH_SCREEN = $$PWD/ios/LaunchScreen.storyboard
+
+    # Bundle the rig definition files as app resources.
+    rigFiles.files = rigs
+    QMAKE_BUNDLE_DATA += rigFiles
+    # NOTE: iOS-specific SOURCES/HEADERS exclusions live at the END of this
+    # file, after SOURCES/HEADERS are populated (qmake -= needs the entries to
+    # already exist).
 }
 
 QMAKE_TARGET_BUNDLE_PREFIX = org.wfview
@@ -171,7 +242,10 @@ unix:rigs.files = rigs/*
 unix:rigs.path = $$PREFIX/share/wfview/rigs
 INSTALLS += rigs
 
-macx:LIBS += -framework CoreAudio -framework CoreFoundation -lpthread -lopus
+macos:LIBS += -framework CoreAudio -framework CoreFoundation -lpthread -lopus
+# iOS: opus comes from the local static lib (added in the ios block); Qt
+# Multimedia pulls in AVFoundation/AudioToolbox itself.
+ios:LIBS += -framework CoreFoundation
 
 # Do not do this, it will hang on start:
 # CONFIG(release, debug|release):DEFINES += QT_NO_DEBUG_OUTPUT
@@ -280,7 +354,8 @@ contains(DEFINES,USB_CONTROLLER){
     win32:INCLUDEPATH += ../hidapi/hidapi
 }
 
-!win32:LIBS += -L./ -lopus
+# iOS links its own static libopus.a (see ios block above).
+!win32:!ios:LIBS += -L./ -lopus
 
 win32:LIBS += -lopus -lole32 -luser32
 
@@ -536,4 +611,32 @@ DISTFILES += \
     src/audio/adpcm/library.properties \
     src/audio/adpcm/license.txt \
     src/audio/resampler/COPYING
+
+# ---------------------------------------------------------------------------
+# iOS: strip desktop-only sources. Placed at the end so the entries added by
+# the SOURCES/HEADERS blocks above already exist for qmake's -= to remove.
+# ---------------------------------------------------------------------------
+ios {
+    # USB/HID controller (no HID stack on iOS; class is disabled via the
+    # absent USB_CONTROLLER define, so its .cpp would reference a missing type).
+    # ft4222handler is kept: it loads LibFT4222 dynamically via QLibrary and
+    # simply no-ops at runtime on iOS, so it stays compilable.
+    SOURCES -= src/usbcontroller.cpp
+    HEADERS -= include/usbcontroller.h
+
+    # PortAudio / RtAudio backends (iOS uses the Qt Multimedia backend).
+    SOURCES -= src/audio/audiohandlerpainput.cpp
+    SOURCES -= src/audio/audiohandlerpaoutput.cpp
+    SOURCES -= src/audio/audiohandlerrtinput.cpp
+    SOURCES -= src/audio/audiohandlerrtoutput.cpp
+    HEADERS -= include/audiohandlerpainput.h
+    HEADERS -= include/audiohandlerpaoutput.h
+    HEADERS -= include/audiohandlerrtinput.h
+    HEADERS -= include/audiohandlerrtoutput.h
+
+    # org.wfview.wfview is reserved by the upstream project and cannot be
+    # registered to a personal signing team. Use a unique bundle id.
+    # (Overrides the QMAKE_TARGET_BUNDLE_PREFIX set earlier in this file.)
+    QMAKE_TARGET_BUNDLE_PREFIX = com.ja6fuf
+}
 

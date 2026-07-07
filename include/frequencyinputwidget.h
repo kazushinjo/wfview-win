@@ -22,7 +22,7 @@ public:
     ~frequencyinputwidget();
 
     QByteArray getGeometry() { return saveGeometry();};
-    void setGeometry(QByteArray g) { restoreGeometry(g);};
+    void setGeometry(QByteArray g);
 
 signals:
     //void issueCmdF(cmds cmd, freqt f);
@@ -68,6 +68,7 @@ private:
     freqt currentFrequency;
     int currentFilter = 1;
     void checkFreqSel();
+    void applyCompactSize();
     cachingQueue* queue;
     rigCapabilities* rigCaps=Q_NULLPTR;
 

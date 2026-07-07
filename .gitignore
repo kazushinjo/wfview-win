@@ -20,3 +20,20 @@ Makefile
 Makefile.Debug
 Makefile.Release
 .DS_Store
+
+# Build artifacts (qmake / Xcode / macOS + iOS builds)
+*.o
+*.obj
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+qrc_*.o
+*.app/
+*.dmg
+build-ios/
+wfview_plugin_import.cpp
+wfview-mac_plugin_import.cpp
+aqtinstall.log
+
+# iOS: machine-specific symlink (points at Homebrew's eigen3)
+ios/include/eigen3

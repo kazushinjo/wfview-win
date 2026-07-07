@@ -1,6 +1,8 @@
 #include "bandbuttons.h"
 #include "ui_bandbuttons.h"
 
+#include <QSizePolicy>
+
 bandbuttons::bandbuttons(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::bandbuttons)
@@ -10,7 +12,12 @@ bandbuttons::bandbuttons(QWidget *parent) :
     // Accessibility: the band buttons are NoFocus in the .ui. Selecting a band
     // does not transmit, so make them reachable by keyboard/VoiceOver via Tab.
     for (QPushButton* btn : ui->groupBox_3->findChildren<QPushButton*>())
+    {
         btn->setFocusPolicy(Qt::StrongFocus);
+        btn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        btn->setMinimumSize(52, 30);
+        btn->setMaximumSize(72, 30);
+    }
 
     ui->bandStkLastUsedBtn->setVisible(false);
     ui->bandStkVoiceBtn->setVisible(false);
@@ -24,11 +31,26 @@ bandbuttons::bandbuttons(QWidget *parent) :
     if (rigCaps != Q_NULLPTR) {
         ui->subBandCheck->setEnabled(rigCaps->numReceiver>1);
     }
+    applyCompactSize();
 }
 
 bandbuttons::~bandbuttons()
 {
     delete ui;
+}
+
+void bandbuttons::setGeometry(QByteArray g)
+{
+    restoreGeometry(g);
+    applyCompactSize();
+}
+
+void bandbuttons::applyCompactSize()
+{
+    const QSize compactSize(600, 300);
+    setMinimumSize(420, 240);
+    setMaximumSize(compactSize);
+    resize(compactSize);
 }
 
 int bandbuttons::getBSRNumber()
@@ -270,6 +292,9 @@ void bandbuttons::bandStackBtnClick(availableBands band)
                         QVariant::fromValue<bandStackType>(bandStackType(b.bsr,ui->bandStkPopdown->currentIndex()+1)),false,uchar(0)));
                 }
                 requestedBand = band;
+#ifdef WFVIEW_IOS
+                hide();
+#endif
                 break;
             }
         }

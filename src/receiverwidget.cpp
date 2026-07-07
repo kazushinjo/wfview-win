@@ -49,6 +49,32 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         selectedVFO = uchar(en);
     });
 
+    freqUpButton = new QPushButton(tr("▲"), this);
+    freqUpButton->setHidden(true);
+    freqUpButton->setFocusPolicy(Qt::StrongFocus);
+    freqUpButton->setAccessibleName(tr("Frequency Up"));
+    freqUpButton->setToolTip(tr("Increase frequency by the selected digit step"));
+    freqUpButton->setAutoRepeat(true);
+    freqUpButton->setAutoRepeatDelay(350);
+    freqUpButton->setAutoRepeatInterval(120);
+    connect(freqUpButton, &QPushButton::clicked, this, [=]() {
+        if (!freqLock && selectedVFO < freqDisplay.size())
+            freqDisplay[selectedVFO]->stepFreqUp();
+    });
+
+    freqDownButton = new QPushButton(tr("▼"), this);
+    freqDownButton->setHidden(true);
+    freqDownButton->setFocusPolicy(Qt::StrongFocus);
+    freqDownButton->setAccessibleName(tr("Frequency Down"));
+    freqDownButton->setToolTip(tr("Decrease frequency by the selected digit step"));
+    freqDownButton->setAutoRepeat(true);
+    freqDownButton->setAutoRepeatDelay(350);
+    freqDownButton->setAutoRepeatInterval(120);
+    connect(freqDownButton, &QPushButton::clicked, this, [=]() {
+        if (!freqLock && selectedVFO < freqDisplay.size())
+            freqDisplay[selectedVFO]->stepFreqDown();
+    });
+
     vfoSwapButton=new QPushButton(tr("A<>B"),this);
     vfoSwapButton->setHidden(true);
     vfoSwapButton->setFocusPolicy(Qt::StrongFocus);
@@ -112,30 +138,14 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
             fr->setMaximumSize(280,30);
             displayLayout->addWidget(fr);
 
-            // Up/Down buttons next to the frequency dial
-            freqDownButton = new QPushButton("▼", this);
-            freqUpButton   = new QPushButton("▲", this);
-            freqDownButton->setMinimumSize(36, 28);
-            freqUpButton->setMinimumSize(36, 28);
-            freqDownButton->setFocusPolicy(Qt::StrongFocus);
-            freqUpButton->setFocusPolicy(Qt::StrongFocus);
-            freqDownButton->setToolTip(tr("Frequency Down"));
-            freqUpButton->setToolTip(tr("Frequency Up"));
-            freqDownButton->setAutoRepeat(true);
-            freqDownButton->setAutoRepeatDelay(500);
-            freqDownButton->setAutoRepeatInterval(100);
-            freqUpButton->setAutoRepeat(true);
-            freqUpButton->setAutoRepeatDelay(500);
-            freqUpButton->setAutoRepeatInterval(100);
-            connect(freqDownButton, &QPushButton::clicked, fr, &freqCtrl::stepFreqDown);
-            connect(freqUpButton,   &QPushButton::clicked, fr, &freqCtrl::stepFreqUp);
-            displayLayout->addWidget(freqDownButton);
-            displayLayout->addWidget(freqUpButton);
-
             // Add the VFO buttons here.
             if (numVFO > 1) {
                 vfoSelectButton->setHidden(false);
+                freqUpButton->setHidden(false);
+                freqDownButton->setHidden(false);
                 displayLayout->addWidget(vfoSelectButton);
+                displayLayout->addWidget(freqDownButton);
+                displayLayout->addWidget(freqUpButton);
 
                 displayLSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
                 displayLayout->addSpacerItem(displayLSpacer);
@@ -181,13 +191,25 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         connect(fr, &freqCtrl::newFrequency, this, [=](const qint64 &freq) {
             this->newFrequency(freq,i);
         });
+        // Clicking/tapping a frequency digit chooses the tuning step; update
+        // stepSize so spectrum tap-tune / scroll use it.
+        connect(fr, &freqCtrl::stepSizeSelected, this, [=](qint64 hz) {
+            if (hz > 0) {
+                stepSize = (quint64)hz;
+                emit stepSizeSelected(receiver, stepSize);
+            }
+        });
 
         freqDisplay.append(fr);
     }
 
 
     controlLayout = new QHBoxLayout();
+#ifdef WFVIEW_IOS
+    detachButton = new QPushButton(QStringLiteral("切離し"));
+#else
     detachButton = new QPushButton(tr("Detach"));
+#endif
     detachButton->setCheckable(true);
     detachButton->setToolTip(tr("Detach/re-attach scope from main window"));
     detachButton->setChecked(false);
@@ -494,7 +516,6 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     });
     connect(configBottom, &QSlider::valueChanged, this, [=](const int &val) {
         this->plotFloor = val;
-        this->wfFloor = val;
         this->setRange(plotFloor,plotCeiling);
         emit updateSettings(receiver,currentTheme,wfLength,plotFloor,plotCeiling);
     });
@@ -502,6 +523,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         this->plotCeiling = val;
         this->wfCeiling = val;
         this->setRange(plotFloor,plotCeiling);
+        this->setWfRange(wfFloor,wfCeiling);
         emit updateSettings(receiver,currentTheme,wfLength,plotFloor,plotCeiling);
     });
 
@@ -747,7 +769,7 @@ void receiverWidget::changeWfLength(uint wf)
 
     colorMap->data()->setValueRange(QCPRange(0, wfLength-1));
     colorMap->data()->setKeyRange(QCPRange(0, spectWidth-1));
-    colorMap->setDataRange(QCPRange(plotFloor, plotCeiling));
+    colorMap->setDataRange(QCPRange(wfFloor, wfCeiling));
     colorMap->setGradient(static_cast<QCPColorGradient::GradientPreset>(currentTheme));
 
     if(colorMapData != Q_NULLPTR)
@@ -795,7 +817,7 @@ bool receiverWidget::prepareWf(uint wf)
 
     colorMap->data()->setValueRange(QCPRange(0, wfLength-1));
     colorMap->data()->setKeyRange(QCPRange(0, spectWidth-1));
-    colorMap->setDataRange(QCPRange(plotFloor, plotCeiling));
+    colorMap->setDataRange(QCPRange(wfFloor, wfCeiling));
     colorMap->setGradient(static_cast<QCPColorGradient::GradientPreset>(currentTheme));
 
     if(colorMapData != Q_NULLPTR)
@@ -821,13 +843,9 @@ void receiverWidget::setRange(int floor, int ceiling)
 {
     plotFloor = floor;
     plotCeiling = ceiling;
-    wfFloor = floor;
-    wfCeiling = ceiling;
     maxAmp = ceiling;
     if (spectrum != Q_NULLPTR)
         spectrum->yAxis->setRange(QCPRange(floor, ceiling));
-    if (colorMap != Q_NULLPTR)
-        colorMap->setDataRange(QCPRange(floor,ceiling));
     configBottom->blockSignals(true);
     configBottom->setValue(floor);
     configBottom->blockSignals(false);
@@ -842,6 +860,19 @@ void receiverWidget::setRange(int floor, int ceiling)
         b.line->end->setCoords(b.line->end->coords().x(), spectrum->yAxis->range().upper-5);
         b.text->position->setCoords(b.text->position->coords().x(), spectrum->yAxis->range().upper-10);
     }
+}
+
+// Adjust only the waterfall colour range (wfFloor/wfCeiling), leaving the
+// spectrum plot floor/ceiling untouched. The colour map is refreshed
+// immediately so the change is visible without waiting for new spectrum data.
+void receiverWidget::setWfRange(int floor, int ceiling)
+{
+    wfFloor = floor;
+    wfCeiling = ceiling;
+    if (colorMap != Q_NULLPTR)
+        colorMap->setDataRange(QCPRange(floor, ceiling));
+    if (waterfall != Q_NULLPTR)
+        waterfall->replot();
 }
 
 void receiverWidget::colorPreset(colorPrefsType *cp)
@@ -1878,6 +1909,22 @@ void receiverWidget::waterfallClick(QMouseEvent *me)
 {
         double x = spectrum->xAxis->pixelToCoord(me->pos().x());
         emit showStatusBarText(QString("Selected %1 MHz").arg(x));
+
+#ifdef WFVIEW_IOS
+        // On touch devices a single tap on the waterfall tunes there directly:
+        // double-tapping a small target with a finger is awkward. (Desktop keeps
+        // its click=select / double-click=tune behaviour.)
+        if (me->button() == Qt::LeftButton && !freqLock)
+        {
+            vfoCommandType t = queue->getVfoCommand(vfoA, receiver, true);
+            freqt freqGo;
+            freqGo.Hz = roundFrequency((quint64)(x * 1E6), stepSize);
+            freqGo.MHzDouble = (float)freqGo.Hz / 1E6;
+            emit sendTrack(freqGo.Hz - this->freq.Hz);
+            setFrequency(freqGo);
+            queue->addUnique(priorityImmediate, queueItem(t.freqFunc, QVariant::fromValue<freqt>(freqGo), false, t.receiver));
+        }
+#endif
 }
 
 void receiverWidget::scroll(QWheelEvent *we)
@@ -2492,6 +2539,7 @@ void receiverWidget::setFrequencyLocally(freqt f, uchar vfo) {
     {
         this->unselectedFreq=f;
     }
+
 }
 
 
@@ -2527,6 +2575,15 @@ void receiverWidget::setFrequency(freqt f, uchar vfo)
     {
         this->unselectedFreq=f;
     }
+}
+
+void receiverWidget::setFreqLock(bool en)
+{
+    freqLock = en;
+    if (freqUpButton != Q_NULLPTR)
+        freqUpButton->setEnabled(!freqLock);
+    if (freqDownButton != Q_NULLPTR)
+        freqDownButton->setEnabled(!freqLock);
 }
 
 void receiverWidget::showBandIndicators(bool en)
@@ -2632,6 +2689,44 @@ void receiverWidget::setRefLimits(int lower, int upper)
 
 void receiverWidget::detachScope(bool state)
 {
+#ifdef WFVIEW_IOS
+    if (state)
+    {
+        windowLabel = new QLabel();
+        detachButton->setText(QStringLiteral("戻す"));
+        qInfo(logGui()) << "Detaching scope" << (receiver?"Sub":"Main");
+
+        QWidget *scopeParent = parentWidget();
+        if (scopeParent && scopeParent->layout())
+            scopeParent->layout()->replaceWidget(this, windowLabel);
+
+        setParent(nullptr, Qt::Window);
+        setWindowTitle(title());
+        showFullScreen();
+    }
+    else
+    {
+        detachButton->setText(QStringLiteral("切離し"));
+        qInfo(logGui()) << "Attaching scope" << (receiver?"Sub":"Main");
+
+        QWidget *scopeParent = windowLabel ? windowLabel->parentWidget() : originalParent;
+        QLayout *scopeLayout = scopeParent ? scopeParent->layout() : nullptr;
+        setParent(scopeParent, Qt::Widget);
+        if (scopeLayout && windowLabel)
+            scopeLayout->replaceWidget(windowLabel, this);
+
+        delete windowLabel;
+        windowLabel = nullptr;
+        show();
+
+        // Detaching an iOS top-level widget must never alter the main window's
+        // geometry. Restore the app window to the device screen on attach.
+        if (originalParent)
+            originalParent->showFullScreen();
+    }
+    return;
+#endif
+
     if (state)
     {
         windowLabel = new QLabel();
@@ -2787,3 +2882,4 @@ void receiverWidget::updateInfo()
         queue->add(priorityImmediate,t.modeFunc,false,t.receiver);
     }
 }
+

@@ -2619,6 +2619,11 @@ with a comma between the low and high range.</source>
 <context>
     <name>settingswidget</name>
     <message>
+        <location filename="../src/settingswidget.cpp" line="27"/>
+        <source>Back</source>
+        <translation>戻る</translation>
+    </message>
+    <message>
         <location filename="../src/settingswidget.ui" line="14"/>
         <source>Settings</source>
         <translation>設定画面</translation>

@@ -40,10 +40,13 @@
 #include "audiohandlerbase.h"
 #include "audiohandlerqtinput.h"
 #include "audiohandlerqtoutput.h"
+// PortAudio and RtAudio backends are desktop-only (see wfview.pro ios block).
+#ifndef WFVIEW_IOS
 #include "audiohandlerrtinput.h"
 #include "audiohandlerrtoutput.h"
 #include "audiohandlerpainput.h"
 #include "audiohandlerpaoutput.h"
+#endif
 #include "audiohandlertciinput.h"
 #include "audiohandlertcioutput.h"
 

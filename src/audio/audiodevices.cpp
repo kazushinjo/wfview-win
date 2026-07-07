@@ -35,7 +35,9 @@ void audioDevices::enumerate()
     {
         case qtAudio:
         {
+#ifndef WFVIEW_IOS
             Pa_Terminate();
+#endif
 
             qInfo(logAudio()) << "Audio device(s) found (*=default)";
 
@@ -159,6 +161,7 @@ void audioDevices::enumerate()
             }
             break;
         }
+#ifndef WFVIEW_IOS
         case portAudio:
         {
             PaError err;
@@ -324,6 +327,7 @@ void audioDevices::enumerate()
             delete audio;
             break;
         }
+#endif // !WFVIEW_IOS
         case tciAudio:
         {
             inputs.append(new audioDevice("<TCI Audio>",0,1));

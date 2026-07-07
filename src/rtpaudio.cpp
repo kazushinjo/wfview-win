@@ -110,12 +110,14 @@ void rtpAudio::init()
         if (outSetup.type == qtAudio) {
             outaudio = new audioHandlerQtOutput();
         }
+#ifndef WFVIEW_IOS
         else if (outSetup.type == portAudio) {
             outaudio = new audioHandlerPaOutput();
         }
         else if (outSetup.type == rtAudio) {
             outaudio = new audioHandlerRtOutput();
         }
+#endif
 #ifndef BUILD_WFSERVER
         else if (outSetup.type == tciAudio) {
             outaudio = new audioHandlerTciOutput();
@@ -153,12 +155,14 @@ void rtpAudio::init()
         if (inSetup.type == qtAudio) {
             inaudio = new audioHandlerQtInput();
         }
+#ifndef WFVIEW_IOS
         else if (inSetup.type == portAudio) {
             inaudio = new audioHandlerPaInput();
         }
         else if (inSetup.type == rtAudio) {
             inaudio = new audioHandlerRtInput();
         }
+#endif
 #ifndef BUILD_WFSERVER
         else if (inSetup.type == tciAudio) {
             inaudio = new audioHandlerTciInput();
