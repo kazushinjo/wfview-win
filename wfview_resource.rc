@@ -1,6 +1,6 @@
 #include <windows.h>
 
-IDI_ICON1	ICON	"C:\\Users\\phil.taylor\\source\\repos\\wfview\\resources\\icons\\Windows\\wfview 512x512.ico"
+IDI_ICON1	ICON	"C:\\claude\\wfview\\resources\\icons\\Windows\\wfview 512x512.ico"
 
 VS_VERSION_INFO VERSIONINFO
 	FILEVERSION 0,0,0,0

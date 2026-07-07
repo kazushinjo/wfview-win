@@ -69,6 +69,8 @@ signals:
 public slots:
     void    setFrequency(qint64 freq);
     void    setFrequencyFocus();
+    void    stepFreqUp();
+    void    stepFreqDown();
 
 protected:
     void    paintEvent(QPaintEvent *);

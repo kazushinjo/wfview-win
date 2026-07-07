@@ -940,6 +940,30 @@ void freqCtrl::decFreq()
     }
 }
 
+void freqCtrl::stepFreqUp()
+{
+    int digit = (m_ActiveEditDigit >= 0) ? m_ActiveEditDigit : m_LastEditDigit;
+    if (digit < m_DigStart || digit >= m_NumDigits || m_DigitInfo[digit].incval == 0)
+        return;
+    m_freq += m_DigitInfo[digit].incval;
+    if (m_ResetLowerDigits)
+        m_freq = m_freq - m_freq % m_DigitInfo[digit].weight;
+    setFrequency(m_freq);
+    m_LastEditDigit = digit;
+}
+
+void freqCtrl::stepFreqDown()
+{
+    int digit = (m_ActiveEditDigit >= 0) ? m_ActiveEditDigit : m_LastEditDigit;
+    if (digit < m_DigStart || digit >= m_NumDigits || m_DigitInfo[digit].incval == 0)
+        return;
+    m_freq -= m_DigitInfo[digit].incval;
+    if (m_ResetLowerDigits)
+        m_freq = m_freq - m_freq % m_DigitInfo[digit].weight;
+    setFrequency(m_freq);
+    m_LastEditDigit = digit;
+}
+
 // Clear the selected digit and the digits below (i.e. set them to 0)
 void freqCtrl::clearFreq()
 {

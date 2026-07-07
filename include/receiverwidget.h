@@ -199,6 +199,8 @@ private:
     QLinearGradient spectrumGradient;
     QLinearGradient underlayGradient;
     QList <freqCtrl*> freqDisplay;
+    QPushButton* freqUpButton = nullptr;
+    QPushButton* freqDownButton = nullptr;
     QSpacerItem* displayLSpacer;
     QPushButton* vfoSelectButton;
     QSpacerItem* displayCSpacer;

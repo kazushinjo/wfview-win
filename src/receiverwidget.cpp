@@ -111,6 +111,27 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
             fr->setMinimumSize(280,30);
             fr->setMaximumSize(280,30);
             displayLayout->addWidget(fr);
+
+            // Up/Down buttons next to the frequency dial
+            freqDownButton = new QPushButton("▼", this);
+            freqUpButton   = new QPushButton("▲", this);
+            freqDownButton->setMinimumSize(36, 28);
+            freqUpButton->setMinimumSize(36, 28);
+            freqDownButton->setFocusPolicy(Qt::StrongFocus);
+            freqUpButton->setFocusPolicy(Qt::StrongFocus);
+            freqDownButton->setToolTip(tr("Frequency Down"));
+            freqUpButton->setToolTip(tr("Frequency Up"));
+            freqDownButton->setAutoRepeat(true);
+            freqDownButton->setAutoRepeatDelay(500);
+            freqDownButton->setAutoRepeatInterval(100);
+            freqUpButton->setAutoRepeat(true);
+            freqUpButton->setAutoRepeatDelay(500);
+            freqUpButton->setAutoRepeatInterval(100);
+            connect(freqDownButton, &QPushButton::clicked, fr, &freqCtrl::stepFreqDown);
+            connect(freqUpButton,   &QPushButton::clicked, fr, &freqCtrl::stepFreqUp);
+            displayLayout->addWidget(freqDownButton);
+            displayLayout->addWidget(freqUpButton);
+
             // Add the VFO buttons here.
             if (numVFO > 1) {
                 vfoSelectButton->setHidden(false);
