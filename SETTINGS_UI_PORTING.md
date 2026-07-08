@@ -150,3 +150,80 @@ if (setupui != Q_NULLPTR)
 3. メーカーをIcom/Kenwood/Yaesuに切り替えると、CI-Vプルダウンの機種一覧が連動して変わること
 4. プルダウンから機種を選ぶと `prefs->radioCIVAddr` に反映されること（手入力の16進も可）
 5. Icom選択時にControl/CAT/Audioの3ポート欄が表示・編集・保存できること
+
+---
+
+# 追記: 設定画面改修以降の変更（2026-07-08）
+
+wfview-mac の以下のコミットで行った追加変更のまとめ。
+参照: kazushinjo/wfview-mac@de2cc0b（バンドボタン）、@048d61c（ヘルプボタン）、@1fb202d（ヘルプ目次・説明書・MDラベル・音量連携）
+
+## 5. バンドボタンの幅を翻訳ラベルに合わせる（de2cc0b）
+
+**症状**: `bandbuttons` のボタン幅を固定 (最大72px) にしていると、日本語翻訳ラベル
+（例: `1200MHz帯`）が収まらず「200MHz帯」のように先頭が欠けて表示される。
+
+`bandbuttons` コンストラクタのボタン設定ループで、フォントメトリクスから幅を決める:
+
+```cpp
+const int textWidth = btn->fontMetrics().horizontalAdvance(btn->text()) + 24;
+btn->setMinimumSize(qMax(52, textWidth), 30);
+btn->setMaximumSize(qMax(72, textWidth), 30);
+```
+
+## 6. メイン画面のヘルプボタンと操作説明書ビューア（048d61c, 1fb202d）
+
+- メイン画面下部のボタン列（Exit の隣）に `helpBtn`（ラベル「ヘルプ」）を追加。
+- クリックで QDialog を開き、左に目次（QTreeWidget）、右に本文（QTextBrowser）を
+  QSplitter で並べる。本文は `docs/操作説明書.md` を `setMarkdown()` で表示。
+- 目次はドキュメントの見出し（`blockFormat().headingLevel()` が 1〜3 のブロック）から
+  階層付きで生成し、`Qt::UserRole` にブロック番号を保存。クリック時は
+  「一旦 End へスクロール → 対象ブロックへ setTextCursor + ensureCursorVisible」で
+  見出しがビューポート上端に来るようにジャンプする。
+- 説明書ファイルはアプリに同梱する。macOS では `.pro` の `QMAKE_BUNDLE_DATA` に
+  `docs` を追加（rigs と同様）。Windows ではビルド後コピー、iOS/Android では
+  リソースかアセットとして同梱し、読み込みパスの候補リストに加える。
+- `docs/操作説明書.md` は小項目付きの詳細版に更新済み（wfview-mac からコピー可能。
+  プラットフォーム固有の記述—/Applications、macOSのマイク権限など—は各OS向けに調整）。
+
+## 7. 変調入力スライダーのラベル USB → MD（1fb202d）
+
+`wfmain::changeModLabel()` で `input.name` をそのまま表示しているところを、
+`USB` のときだけ `MD`（変調度）に置き換える:
+
+```cpp
+QString modLabelText = input.name;
+if (modLabelText.compare("USB", Qt::CaseInsensitive) == 0)
+    modLabelText = QStringLiteral("MD");
+ui->modSliderLbl->setText(modLabelText);
+```
+
+## 8. AF スライダーと OS システム音量の連携（1fb202d）
+
+`on_afGainSlider_valueChanged()` で、アプリ内音量に加えて OS のシステム出力音量も
+同じ割合に設定する。**正規化はスライダーの実際の最大値で行うこと**
+（機種によりレンジが異なる。255 固定で割ると最大音量が小さくなる不具合になる）:
+
+```cpp
+if (ui->afGainSlider->maximum() > 0)
+    setSystemVolume((float)value / (float)ui->afGainSlider->maximum());
+```
+
+OS ごとの実装:
+
+- **macOS**: CoreAudio。デフォルト出力デバイスを取得し
+  `kAudioDevicePropertyVolumeScalar`（ElementMain、無ければチャンネル1/2）に
+  Float32 (0.0-1.0) を書き込む（wfview-mac の `setMacSystemVolume()` を参照）。
+- **Windows**: WASAPI の `IAudioEndpointVolume::SetMasterVolumeLevelScalar()`
+  （`MMDeviceEnumerator` → `GetDefaultAudioEndpoint(eRender)` → Activate）。
+- **iOS / iPadOS**: システム音量の直接設定は公開 API がない
+  （`MPVolumeView` のスライダー操作経由のみ）。無理に実装せず、アプリ内音量のみで
+  よい。実装する場合も App Store 審査で問題になり得る点に注意。
+- **Android**: `AudioManager.setStreamVolume(STREAM_MUSIC, ...)` を JNI 経由で呼ぶ。
+
+## 追加の動作確認項目
+
+6. バンド切り替えポップアップで全バンド名が欠けずに表示されること（日本語UIで確認）
+7. ヘルプボタンで説明書が開き、目次クリックで該当セクションへジャンプすること
+8. 変調入力スライダーのラベルが USB 機で MD と表示されること
+9. AF スライダー最大で OS 音量も最大になること（途中の値も比例すること）
