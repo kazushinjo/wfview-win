@@ -71,6 +71,7 @@ Source: "{#MySourceDir}\tls\*";               DestDir: "{app}\tls";             
 Source: "{#MySourceDir}\generic\*";           DestDir: "{app}\generic";           Flags: ignoreversion recursesubdirs
 Source: "{#MySourceDir}\translations\*";      DestDir: "{app}\translations";      Flags: ignoreversion recursesubdirs
 Source: "{#MySourceDir}\rigs\*";              DestDir: "{app}\rigs";              Flags: ignoreversion recursesubdirs
+Source: "{#MySourceDir}\docs\*";              DestDir: "{app}\docs";              Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

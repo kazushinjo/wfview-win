@@ -15,8 +15,11 @@ bandbuttons::bandbuttons(QWidget *parent) :
     {
         btn->setFocusPolicy(Qt::StrongFocus);
         btn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-        btn->setMinimumSize(52, 30);
-        btn->setMaximumSize(72, 30);
+        // Size to the (possibly translated) label: e.g. Japanese "1200MHz帯"
+        // is wider than the English "23cm" and gets clipped at a fixed 72px.
+        const int textWidth = btn->fontMetrics().horizontalAdvance(btn->text()) + 24;
+        btn->setMinimumSize(qMax(52, textWidth), 30);
+        btn->setMaximumSize(qMax(72, textWidth), 30);
     }
 
     ui->bandStkLastUsedBtn->setVisible(false);

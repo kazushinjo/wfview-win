@@ -9,10 +9,46 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QVBoxLayout>
+#include <QDialog>
 #include <QTextBrowser>
 #include <QSplitter>
 #include <QTreeWidget>
 #include <QFile>
+
+#ifdef Q_OS_WIN
+#include <mmdeviceapi.h>
+#include <endpointvolume.h>
+
+// Set the Windows system output volume (0.0 - 1.0) of the default render
+// device, so the AF slider can drive the OS volume together with the
+// application-side audio gain.
+static void setWindowsSystemVolume(float volume)
+{
+    const bool comInited = SUCCEEDED(CoInitializeEx(Q_NULLPTR, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE));
+
+    IMMDeviceEnumerator* enumerator = Q_NULLPTR;
+    if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), Q_NULLPTR, CLSCTX_ALL,
+                                    __uuidof(IMMDeviceEnumerator), (void**)&enumerator)))
+    {
+        IMMDevice* device = Q_NULLPTR;
+        if (SUCCEEDED(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device)))
+        {
+            IAudioEndpointVolume* endpointVolume = Q_NULLPTR;
+            if (SUCCEEDED(device->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_ALL,
+                                            Q_NULLPTR, (void**)&endpointVolume)))
+            {
+                endpointVolume->SetMasterVolumeLevelScalar(qBound(0.0f, volume, 1.0f), Q_NULLPTR);
+                endpointVolume->Release();
+            }
+            device->Release();
+        }
+        enumerator->Release();
+    }
+
+    if (comInited)
+        CoUninitialize();
+}
+#endif
 
 #ifdef WFVIEW_IOS
 #include <QBoxLayout>
@@ -232,6 +268,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     finputbtns = new frequencyinputwidget();
     setupui = new settingswidget();
+    setupui->acceptRigListPtr(&rigList);
 
     connect(setupui, SIGNAL(havePortError(errorType)), this, SLOT(receivePortError(errorType)));
 
@@ -3347,6 +3384,9 @@ void wfmain::setManufacturer(manufacturersType_t man)
         }
     }
 
+    // The CI-V/model pulldown in the settings widget mirrors rigList.
+    if (setupui != Q_NULLPTR)
+        setupui->refreshCivAddrList();
 }
 
 void wfmain::extChangedRsPref(prefRsItem i)
@@ -5102,6 +5142,14 @@ void wfmain::on_afGainSlider_valueChanged(int value)
         prefs.localAFgain = (quint8)(value);
     }
 
+#ifdef Q_OS_WIN
+    // Drive the Windows system output volume together with the AF slider.
+    // Normalize by the slider's actual range (it is rig-dependent, not
+    // always 0-255) so that slider max equals full system volume.
+    if (ui->afGainSlider->maximum() > 0)
+        setWindowsSystemVolume((float)value / (float)ui->afGainSlider->maximum());
+#endif
+
     queue->addUnique(priorityImmediate,queueItem(funcAfGain,QVariant::fromValue<ushort>(value),false,currentReceiver));
 }
 
@@ -5299,14 +5347,10 @@ void wfmain::receiveATUStatus(quint8 atustatus)
 
 void wfmain::handleExtConnectBtn() {
     // from settings widget
-    if (connStatus == connDisconnected)
-    {
-        const QString profileName = setupui->currentConnectionProfileName();
-        if (!profileName.isEmpty() && connectionProfileNames().contains(profileName))
-        {
-            loadConnectionProfile(profileName);
-        }
-    }
+    // Note: do NOT reload the selected connection profile here. The profile
+    // is already applied when it is selected in the combo box; reloading it
+    // on connect would silently discard any unsaved edits (CI-V address,
+    // IP address, etc.) the user made after selecting the profile.
     on_connectBtn_clicked();
 }
 
@@ -5856,7 +5900,10 @@ void wfmain::changeModLabel(rigInput input, bool updateLevel)
 
     ui->micGainSlider->setRange(f.minVal,f.maxVal);
 
-    ui->modSliderLbl->setText(input.name);
+    QString modLabelText = input.name;
+    if (modLabelText.compare("USB", Qt::CaseInsensitive) == 0)
+        modLabelText = QStringLiteral("MD"); // 変調度 (USB modulation input)
+    ui->modSliderLbl->setText(modLabelText);
 
     if(updateLevel)
     {

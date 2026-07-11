@@ -2,6 +2,8 @@
 #include "qserialportinfo.h"
 #include "ui_settingswidget.h"
 
+#include <QAbstractItemView>
+#include <QApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
@@ -15,6 +17,12 @@ settingswidget::settingswidget(QWidget *parent) :
 {
     ui->setupUi(this);
     createConnectionProfileControls();
+    populateCivAddrCombo();
+    if (ui->rigCIVaddrCombo->lineEdit() != Q_NULLPTR)
+    {
+        connect(ui->rigCIVaddrCombo->lineEdit(), &QLineEdit::editingFinished,
+                this, &settingswidget::civAddrEditFinished);
+    }
 
 #ifdef WFVIEW_IOS
     ui->settingsList->setMinimumWidth(220);
@@ -100,6 +108,7 @@ void settingswidget::createConnectionProfileControls()
         }
     });
     connect(connectionProfileSaveBtn, &QPushButton::clicked, this, [this]() {
+        commitPendingEdits();
         QString name = connectionProfileCombo->currentText().trimmed();
         if (name.isEmpty())
         {
@@ -935,15 +944,15 @@ void settingswidget::updateRaPref(prefRaItem pra)
     switch(pra)
     {
     case ra_radioCIVAddr:
-        // It may be possible to ignore this value at this time.
-        // TODO
+        quietlyUpdateCheckbox(ui->rigCIVManualAddrChk, prefs->radioCIVAddr != 0);
         if(prefs->radioCIVAddr == 0)
         {
-            ui->rigCIVaddrHexLine->setText("auto");
-            ui->rigCIVaddrHexLine->setEnabled(false);
+            ui->rigCIVaddrCombo->setCurrentIndex(-1);
+            ui->rigCIVaddrCombo->setEditText("auto");
+            ui->rigCIVaddrCombo->setEnabled(false);
         } else {
-            ui->rigCIVaddrHexLine->setEnabled(true);
-            ui->rigCIVaddrHexLine->setText(QString("%1").arg(prefs->radioCIVAddr, 4, 16));
+            ui->rigCIVaddrCombo->setEnabled(true);
+            setCivComboToAddress(prefs->radioCIVAddr);
         }
         break;
     case ra_serialEnabled:
@@ -1780,32 +1789,146 @@ void settingswidget::on_pttTypeCombo_currentIndexChanged(int index)
 }
 
 
+void settingswidget::acceptRigListPtr(QHash<quint16,rigInfo> *rptr)
+{
+    rigList = rptr;
+}
+
+void settingswidget::refreshCivAddrList()
+{
+    populateCivAddrCombo();
+}
+
+void settingswidget::populateCivAddrCombo()
+{
+    // Fallback list, used only until the rig definition files (rigList,
+    // owned by wfmain and filtered by the current manufacturer) are loaded.
+    static const struct { const char* name; quint8 addr; } icomModels[] = {
+        {"IC-703", 0x68}, {"IC-705", 0xA4}, {"IC-706", 0x58}, {"IC-718", 0x5E},
+        {"IC-736", 0x40}, {"IC-737", 0x3C}, {"IC-738", 0x44}, {"IC-746", 0x56},
+        {"IC-756", 0x50}, {"IC-756 Pro", 0x5C}, {"IC-756 Pro II", 0x64},
+        {"IC-756 Pro III", 0x6E}, {"IC-7000", 0x70}, {"IC-7100", 0x88},
+        {"IC-7200", 0x76}, {"IC-7300", 0x94}, {"IC-7410", 0x80},
+        {"IC-7600", 0x7A}, {"IC-7610", 0x98}, {"IC-7700", 0x74},
+        {"IC-7800", 0x6A}, {"IC-7850/7851", 0x8E}, {"IC-905", 0xAC},
+        {"IC-910H", 0x60}, {"IC-9100", 0x7C}, {"IC-9700", 0xA2},
+        {"IC-R8600", 0x96},
+    };
+
+    ui->rigCIVaddrCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    ui->rigCIVaddrCombo->blockSignals(true);
+    ui->rigCIVaddrCombo->clear();
+
+    if (rigList != Q_NULLPTR && !rigList->isEmpty())
+    {
+        // Model name + address/ID from the .rig definition files of the
+        // currently selected manufacturer (works for Icom, Kenwood, Yaesu).
+        QList<rigInfo> rigs = rigList->values();
+        std::sort(rigs.begin(), rigs.end(),
+                  [](const rigInfo& a, const rigInfo& b) { return a.model < b.model; });
+        for (const rigInfo& r : rigs)
+        {
+            if (r.civ == 0)
+                continue;
+            ui->rigCIVaddrCombo->addItem(QString("%1 (%2)").arg(r.model,
+                                         QString::number(r.civ, 16).toUpper()), r.civ);
+        }
+    }
+    else
+    {
+        for (const auto& m : icomModels)
+        {
+            ui->rigCIVaddrCombo->addItem(QString("%1 (%2)").arg(QString::fromLatin1(m.name),
+                                         QString::number(m.addr, 16).toUpper()), m.addr);
+        }
+    }
+    ui->rigCIVaddrCombo->setCurrentIndex(-1);
+    ui->rigCIVaddrCombo->blockSignals(false);
+
+    // Make sure the popup list is wide enough for the longest entry even if
+    // the layout squeezes the closed combo box.
+    if (ui->rigCIVaddrCombo->view() != Q_NULLPTR)
+        ui->rigCIVaddrCombo->view()->setMinimumWidth(200);
+
+    const bool manualActive = prefs != Q_NULLPTR && prefs->radioCIVAddr != 0;
+    ui->rigCIVaddrCombo->setEnabled(manualActive);
+    if (manualActive)
+        setCivComboToAddress(prefs->radioCIVAddr);
+    else
+        ui->rigCIVaddrCombo->setEditText(QStringLiteral("auto"));
+}
+
+void settingswidget::setCivComboToAddress(quint16 addr)
+{
+    const int index = ui->rigCIVaddrCombo->findData(addr);
+    if (index >= 0)
+    {
+        ui->rigCIVaddrCombo->setCurrentIndex(index);
+    }
+    else
+    {
+        ui->rigCIVaddrCombo->setCurrentIndex(-1);
+        ui->rigCIVaddrCombo->setEditText(QString::number(addr, 16).toUpper());
+    }
+}
+
 void settingswidget::on_rigCIVManualAddrChk_clicked(bool checked)
 {
     if(checked)
     {
-        ui->rigCIVaddrHexLine->setEnabled(true);
-        ui->rigCIVaddrHexLine->setText(QString("%1").arg(prefs->radioCIVAddr, 4, 16));
+        ui->rigCIVaddrCombo->setEnabled(true);
+        setCivComboToAddress(prefs->radioCIVAddr);
     } else {
-        ui->rigCIVaddrHexLine->setText("auto");
-        ui->rigCIVaddrHexLine->setEnabled(false);
+        ui->rigCIVaddrCombo->setCurrentIndex(-1);
+        ui->rigCIVaddrCombo->setEditText("auto");
+        ui->rigCIVaddrCombo->setEnabled(false);
         prefs->radioCIVAddr = 0; // auto
     }
     emit changedRaPref(ra_radioCIVAddr);
 }
 
-void settingswidget::on_rigCIVaddrHexLine_editingFinished()
+void settingswidget::on_rigCIVaddrCombo_activated(int index)
 {
-    bool okconvert=false;
+    if (updatingUIFromPrefs || index < 0)
+        return;
 
-    quint8 propCIVAddr = (quint8) ui->rigCIVaddrHexLine->text().toUInt(&okconvert, 16);
-
-    if(!okconvert || propCIVAddr >= 0xe0 || propCIVAddr == 0)
-    {
-        ui->rigCIVaddrHexLine->setText("0");
-    }
-    prefs->radioCIVAddr = propCIVAddr;
+    prefs->radioCIVAddr = (quint16)ui->rigCIVaddrCombo->itemData(index).toUInt();
     emit changedRaPref(ra_radioCIVAddr);
+}
+
+void settingswidget::civAddrEditFinished()
+{
+    if (updatingUIFromPrefs || !ui->rigCIVaddrCombo->isEnabled())
+        return;
+
+    const QString text = ui->rigCIVaddrCombo->currentText().trimmed();
+
+    // A picked (or fully typed) list entry such as "IC-9700 (A2)":
+    const int index = ui->rigCIVaddrCombo->findText(text);
+    quint16 propCIVAddr = 0;
+    bool okconvert = false;
+    if (index >= 0)
+    {
+        propCIVAddr = (quint16)ui->rigCIVaddrCombo->itemData(index).toUInt();
+        okconvert = true;
+    }
+    else
+    {
+        // Free-form hex entry, e.g. "5C":
+        propCIVAddr = (quint16)text.toUInt(&okconvert, 16);
+    }
+
+    if(!okconvert || propCIVAddr == 0)
+    {
+        setCivComboToAddress(prefs->radioCIVAddr);
+        return;
+    }
+
+    if (propCIVAddr != prefs->radioCIVAddr)
+    {
+        prefs->radioCIVAddr = propCIVAddr;
+        emit changedRaPref(ra_radioCIVAddr);
+    }
 }
 
 void settingswidget::on_useCIVasRigIDChk_clicked(bool checked)
@@ -1979,10 +2102,13 @@ void settingswidget::on_manufacturerCombo_currentIndexChanged(int value)
         ui->serverCATPortLabel->setVisible(true);
         ui->serverScopePortLabel->setVisible(false);
 
-        ui->catPortLabel->setVisible(false);
-        ui->catPortTxt->setVisible(false);
-        ui->audioPortLabel->setVisible(false);
-        ui->audioPortTxt->setVisible(false);
+        // Icom protocol reports serial/audio ports via the login response, so
+        // these fields are informational only (only the Control port is
+        // actually used), but still show them for reference.
+        ui->catPortLabel->setVisible(true);
+        ui->catPortTxt->setVisible(true);
+        ui->audioPortLabel->setVisible(true);
+        ui->audioPortTxt->setVisible(true);
         ui->scopePortLabel->setVisible(false);
         ui->scopePortTxt->setVisible(false);
 
@@ -2041,6 +2167,9 @@ void settingswidget::on_manufacturerCombo_currentIndexChanged(int value)
     ui->catPortTxt->setText(QString::number(udpPrefs->serialLANPort));
     ui->audioPortTxt->setText(QString::number(udpPrefs->audioLANPort));
     ui->scopePortTxt->setText(QString::number(udpPrefs->scopeLANPort));
+
+    // Rebuild the CI-V address list to match the selected manufacturer.
+    populateCivAddrCombo();
 
     emit changedRaPref(ra_manufacturer);
 
@@ -3539,8 +3668,19 @@ void settingswidget::connectionStatus(bool conn)
     }
 }
 
+void settingswidget::commitPendingEdits()
+{
+    // Clicking a button does not always move focus out of a QLineEdit,
+    // so editingFinished (which commits fields like the CI-V address into
+    // prefs) may never fire. Force-commit the focused editor first.
+    QWidget* editor = QApplication::focusWidget();
+    if (editor != Q_NULLPTR && editor != this)
+        editor->clearFocus();
+}
+
 void settingswidget::on_connectBtn_clicked()
 {
+    commitPendingEdits();
     emit connectButtonPressed();
 }
 

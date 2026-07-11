@@ -247,6 +247,8 @@ macos:LIBS += -framework CoreAudio -framework CoreFoundation -lpthread -lopus
 # iOS: opus comes from the local static lib (added in the ios block); Qt
 # Multimedia pulls in AVFoundation/AudioToolbox itself.
 ios:LIBS += -framework CoreFoundation
+# WASAPI IAudioEndpointVolume, used to drive the OS output volume from the AF slider.
+win32:LIBS += -lole32
 
 # Do not do this, it will hang on start:
 # CONFIG(release, debug|release):DEFINES += QT_NO_DEBUG_OUTPUT
