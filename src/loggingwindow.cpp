@@ -13,7 +13,8 @@ loggingWindow::loggingWindow(QString logFilename, QWidget *parent) :
     ui->annotateBtn->setDefault(true);
     ui->logTextDisplay->setFocusPolicy(Qt::NoFocus);
     ui->annotateBtn->setFocusPolicy(Qt::NoFocus);
-    
+    connect(ui->backBtn, &QPushButton::clicked, this, &loggingWindow::close);
+
     QDir d = QFileInfo(logFilename).absoluteDir();
     logDirectory = d.absolutePath();
 

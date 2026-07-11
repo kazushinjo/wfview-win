@@ -20,6 +20,7 @@ memories::memories(bool isAdmin, bool slowLoad, QWidget *parent) :
     progress = new QProgressBar(this);
     statusBar->addWidget(progress,1);
     this->setObjectName("memories");
+    connect(ui->backBtn, &QPushButton::clicked, this, &memories::close);
     queue = cachingQueue::getInstance();
     rigCaps = queue->getRigCaps();
     if (rigCaps == Q_NULLPTR)

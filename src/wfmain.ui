@@ -1243,7 +1243,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Save</string>
+          <string>保存</string>
          </property>
         </widget>
        </item>
@@ -1253,7 +1253,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Status</string>
+          <string>ステータス</string>
          </property>
         </widget>
        </item>
@@ -1283,7 +1283,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Freq</string>
+          <string>周波数設定</string>
          </property>
         </widget>
        </item>
@@ -1306,7 +1306,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>TX Proc</string>
+          <string>TX音声処理</string>
          </property>
         </widget>
        </item>
@@ -1319,7 +1319,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>RX Proc</string>
+          <string>RX音声処理</string>
          </property>
         </widget>
        </item>
@@ -1358,6 +1358,19 @@
           </size>
          </property>
         </spacer>
+       </item>
+       <item>
+        <widget class="QPushButton" name="helpBtn">
+         <property name="focusPolicy">
+          <enum>Qt::NoFocus</enum>
+         </property>
+         <property name="toolTip">
+          <string>操作説明書を表示します</string>
+         </property>
+         <property name="text">
+          <string>ヘルプ</string>
+         </property>
+        </widget>
        </item>
        <item>
         <widget class="QPushButton" name="exitBtn">

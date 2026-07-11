@@ -299,6 +299,16 @@ void AudioProcessingWidget::buildUi()
     auto* mainLayout = new QVBoxLayout(this);
 #endif
 
+    // ── Back button ──────────────────────────────────────────────────────────
+    {
+        auto* backRow = new QHBoxLayout;
+        auto* backBtn = new QPushButton(tr("← 戻る"));
+        connect(backBtn, &QPushButton::clicked, this, &AudioProcessingWidget::close);
+        backRow->addWidget(backBtn);
+        backRow->addStretch(1);
+        mainLayout->addLayout(backRow);
+    }
+
     // ── Master bypass ────────────────────────────────────────────────────────
     {
         bypassCheck = new QCheckBox(tr("Master Bypass (disable all DSP)"));

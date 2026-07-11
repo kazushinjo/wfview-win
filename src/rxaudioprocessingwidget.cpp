@@ -795,6 +795,14 @@ void RxAudioProcessingWidget::buildUi()
 
     auto* outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
+    {
+        auto* backRow = new QHBoxLayout;
+        auto* backBtn = new QPushButton(tr("← 戻る"));
+        connect(backBtn, &QPushButton::clicked, this, &RxAudioProcessingWidget::close);
+        backRow->addWidget(backBtn);
+        backRow->addStretch(1);
+        outerLayout->addLayout(backRow);
+    }
     outerLayout->addWidget(scroll, 1);
     // Start disabled — enabled when radio connects
     controlsContainer->setEnabled(false);

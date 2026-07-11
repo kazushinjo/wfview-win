@@ -209,6 +209,8 @@ void settingswidget::populateComboBoxes()
     ui->meter2selectionCombo->addItem("TxAudio", meterTxMod);
     ui->meter2selectionCombo->show();
     ui->meter2selectionCombo->blockSignals(false);
+    // Meter2 is fixed to SWR on this build; prevent the user from changing it.
+    ui->meter2selectionCombo->setEnabled(false);
 
     ui->meter3selectionCombo->blockSignals(true);
     ui->meter3selectionCombo->addItem("None", meterNone);
@@ -224,6 +226,8 @@ void settingswidget::populateComboBoxes()
     ui->meter3selectionCombo->addItem("TxAudio", meterTxMod);
     ui->meter3selectionCombo->show();
     ui->meter3selectionCombo->blockSignals(false);
+    // Meter3 is fixed to Tx(dBfs) on this build; prevent the user from changing it.
+    ui->meter3selectionCombo->setEnabled(false);
 
     ui->secondaryMeterSelectionLabel->show();
 

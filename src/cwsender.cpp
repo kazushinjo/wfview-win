@@ -20,6 +20,7 @@ cwSender::cwSender(QWidget *parent , rigCommander *rigPointer) :
     ui->statusbar->setToolTipDuration(3000);
 
     this->setToolTipDuration(3000);
+    connect(ui->backBtn, &QPushButton::clicked, this, &cwSender::close);
     connect(ui->textToSendEdit->lineEdit(), &QLineEdit::textEdited, this, &cwSender::textChanged);
     this->setObjectName("CW Sender");
 

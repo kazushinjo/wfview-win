@@ -12,6 +12,7 @@ frequencyinputwidget::frequencyinputwidget(QWidget *parent) :
     this->setWindowTitle("Frequency Input");
     ui->freqMhzLineEdit->setValidator( new QDoubleValidator(0, 100, 6, this));
     this->setObjectName("freq Input");
+    connect(ui->returnBtn, &QPushButton::clicked, this, &frequencyinputwidget::close);
     queue = cachingQueue::getInstance();
     rigCaps = queue->getRigCaps();
     connect(queue, SIGNAL(rigCapsUpdated(rigCapabilities*)), this, SLOT(receiveRigCaps(rigCapabilities*)));

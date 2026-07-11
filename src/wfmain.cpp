@@ -9,6 +9,10 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QVBoxLayout>
+#include <QTextBrowser>
+#include <QSplitter>
+#include <QTreeWidget>
+#include <QFile>
 
 #ifdef WFVIEW_IOS
 #include <QBoxLayout>
@@ -165,6 +169,10 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     for (QPushButton* btn : tabFocusButtons)
         btn->setFocusPolicy(Qt::StrongFocus);
 
+    // Require a double-click on the exit button so it can't be triggered by
+    // an accidental single click; see eventFilter().
+    ui->exitBtn->installEventFilter(this);
+    ui->exitBtn->setToolTip(tr("ダブルクリックで終了"));
 
     logWindow = new loggingWindow(logFile);
     initLogging();
@@ -343,9 +351,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     // that sets the waterfall colour floor at runtime, independent of the
     // spectrum. Mirrors the RF/AF/SQL columns (slider on top, label below).
     {
-        QFont mg = ui->mainGroup->font();
-        mg.setPointSizeF(16.0);
-        mg.setBold(true);
         QVBoxLayout *wfCol = new QVBoxLayout();
         wfCol->setSpacing(2);
         iosWfLevelSlider = new QSlider(Qt::Vertical);
@@ -356,9 +361,12 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
         iosWfLevelSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         iosWfLevelSlider->setMinimumHeight(120);
         iosWfLevelLabel = new QLabel(QStringLiteral("WF"));
-        iosWfLevelLabel->setAlignment(Qt::AlignHCenter);
-        iosWfLevelLabel->setFont(mg);
-        wfCol->addWidget(iosWfLevelSlider, 0, Qt::AlignHCenter);
+        // Match the RF/AF/SQL/Mic/TX/Mon labels: default font, same height cap.
+        iosWfLevelLabel->setMaximumSize(16777215, 15);
+        // No alignment flag, matching how the RF/AF/SQL/Mic/TX/Mon sliders and
+        // labels are added in the .ui — otherwise the centered slider and the
+        // stretched (left-aligned text) label drift apart horizontally.
+        wfCol->addWidget(iosWfLevelSlider, 0);
         wfCol->addWidget(iosWfLevelLabel, 0);
         ui->levelsHorizontalLayout->addLayout(wfCol);
         connect(iosWfLevelSlider, &QSlider::valueChanged, this, [this](int val){
@@ -400,11 +408,11 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 #endif
 
     loadSettings(); // Look for saved preferences
-#ifdef WFVIEW_IOS
-    // Keep the second meter, directly below the S meter, assigned to SWR on
-    // iPad even when an older saved configuration has it disabled.
+    // Keep the second meter (below the S meter) assigned to SWR, and the
+    // third meter (below that) assigned to Tx Mod (mic input level, dBFS),
+    // even when an older saved configuration has them set to something else.
     prefs.meter2Type = meterSWR;
-#endif
+    prefs.meter3Type = meterTxMod;
 
     // The WF-level slider was built before loadSettings(); sync it to the saved
     // value now (blocking signals so it doesn't overwrite prefs).
@@ -462,7 +470,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
             prefs.settingsChanged = false;
             prefs.confirmExit = false;
             QTimer::singleShot(10, this, [&](){
-                on_exitBtn_clicked();
+                doExit();
             });
         });
         connect(fts, &FirstTimeSetup::showSettings, this, [=](const bool networkEnabled) {
@@ -660,9 +668,19 @@ wfmain::~wfmain()
 
 void wfmain::closeEvent(QCloseEvent *event)
 {
-    if (on_exitBtn_clicked())
+    if (doExit())
         event->ignore();
 
+}
+
+bool wfmain::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == ui->exitBtn && event->type() == QEvent::MouseButtonDblClick)
+    {
+        doExit();
+        return true;
+    }
+    return QMainWindow::eventFilter(obj, event);
 }
 
 void wfmain::resizeEvent(QResizeEvent *event)
@@ -1561,7 +1579,7 @@ void wfmain::runShortcut(const QKeySequence k)
     }
     else if (k==(Qt::CTRL | Qt::Key_Q))
     {
-        on_exitBtn_clicked();
+        doExit();
     }
     else if (k==(Qt::CTRL | Qt::Key_D) || k==(Qt::CTRL | Qt::SHIFT | Qt::Key_D))
     {
@@ -2117,12 +2135,8 @@ void wfmain::setDefPrefs()
     defPrefs.confirmSettingsChanged = true;
     defPrefs.confirmMemories = false;
     defPrefs.meter1Type = meterS;
-#ifdef WFVIEW_IOS
     defPrefs.meter2Type = meterSWR;
-#else
-    defPrefs.meter2Type = meterNone;
-#endif
-    defPrefs.meter3Type = meterNone;
+    defPrefs.meter3Type = meterTxMod;
     defPrefs.compMeterReverse = false;
     defPrefs.region = "1";
     defPrefs.showBands = true;
@@ -5131,7 +5145,7 @@ void wfmain::on_tuneEnableChk_clicked(bool checked)
     ATUCheckTimer.start(5000);
 }
 
-bool wfmain::on_exitBtn_clicked()
+bool wfmain::doExit()
 {
     bool ret=false;
     if (prefs.settingsChanged && prefs.confirmSettingsChanged)
@@ -5445,6 +5459,95 @@ void wfmain::addIosBackButton(QWidget *w)
     }
 }
 #endif
+
+void wfmain::on_helpBtn_clicked()
+{
+    if (helpWindow == Q_NULLPTR)
+    {
+        helpWindow = new QDialog(this);
+        helpWindow->setWindowTitle(tr("ヘルプ - 操作説明書"));
+        helpWindow->resize(980, 680);
+        QVBoxLayout* helpLayout = new QVBoxLayout(helpWindow);
+        QSplitter* split = new QSplitter(helpWindow);
+        helpLayout->addWidget(split);
+
+        QTreeWidget* toc = new QTreeWidget(split);
+        toc->setHeaderLabel(tr("目次"));
+        QTextBrowser* browser = new QTextBrowser(split);
+        browser->setOpenExternalLinks(true);
+        split->addWidget(toc);
+        split->addWidget(browser);
+        split->setStretchFactor(0, 0);
+        split->setStretchFactor(1, 1);
+        split->setSizes({260, 720});
+
+        // The manual is copied next to the executable by the win32 build
+        // (QMAKE_POST_LINK xcopy of docs\, same as rigs\); fall back to the
+        // source tree location for builds run directly from the repo.
+        const QStringList candidates = {
+            QCoreApplication::applicationDirPath() + "/docs/操作説明書.md",
+            QCoreApplication::applicationDirPath() + "/../docs/操作説明書.md",
+            QCoreApplication::applicationDirPath() + "/../../docs/操作説明書.md",
+        };
+
+        QString manualText;
+        for (const QString& path : candidates)
+        {
+            QFile manual(path);
+            if (manual.open(QIODevice::ReadOnly | QIODevice::Text))
+            {
+                manualText = QString::fromUtf8(manual.readAll());
+                break;
+            }
+        }
+
+        if (manualText.isEmpty())
+            browser->setPlainText(tr("操作説明書 (docs/操作説明書.md) が見つかりませんでした。"));
+        else
+            browser->setMarkdown(manualText);
+
+        // Build the table of contents from the document headings (levels
+        // 1-3). Each entry remembers its block number for jumping.
+        QTreeWidgetItem* lastItem[3] = {Q_NULLPTR, Q_NULLPTR, Q_NULLPTR};
+        for (QTextBlock block = browser->document()->begin();
+             block.isValid(); block = block.next())
+        {
+            const int level = block.blockFormat().headingLevel();
+            if (level < 1 || level > 3)
+                continue;
+
+            QTreeWidgetItem* parent = Q_NULLPTR;
+            for (int l = level - 2; l >= 0 && parent == Q_NULLPTR; l--)
+                parent = lastItem[l];
+
+            QTreeWidgetItem* item = (parent != Q_NULLPTR)
+                ? new QTreeWidgetItem(parent)
+                : new QTreeWidgetItem(toc);
+            item->setText(0, block.text());
+            item->setData(0, Qt::UserRole, block.blockNumber());
+            lastItem[level - 1] = item;
+            for (int l = level; l < 3; l++)
+                lastItem[l] = Q_NULLPTR;
+        }
+        toc->expandAll();
+
+        connect(toc, &QTreeWidget::itemClicked, browser,
+                [browser](QTreeWidgetItem* item, int) {
+            const QTextBlock block =
+                browser->document()->findBlockByNumber(item->data(0, Qt::UserRole).toInt());
+            if (!block.isValid())
+                return;
+            // Scroll to the end first so that the heading then lands at the
+            // top of the viewport rather than the bottom.
+            QTextCursor end(browser->document());
+            end.movePosition(QTextCursor::End);
+            browser->setTextCursor(end);
+            browser->setTextCursor(QTextCursor(block));
+            browser->ensureCursorVisible();
+        });
+    }
+    showAndRaiseWidget(helpWindow);
+}
 
 void wfmain::showAndRaiseWidget(QWidget *w)
 {

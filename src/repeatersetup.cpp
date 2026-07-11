@@ -8,6 +8,7 @@ repeaterSetup::repeaterSetup(QWidget *parent) :
     ui->setupUi(this);
 
     this->setObjectName("RepeaterSetup");
+    connect(ui->backBtn, &QPushButton::clicked, this, &repeaterSetup::close);
     queue = cachingQueue::getInstance();
     connect(queue, SIGNAL(rigCapsUpdated(rigCapabilities*)), this, SLOT(receiveRigCaps(rigCapabilities*)));
 
