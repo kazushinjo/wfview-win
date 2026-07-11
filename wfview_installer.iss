@@ -2,8 +2,8 @@
 #define MyAppVersion "2.22"
 #define MyAppPublisher "wf-group"
 #define MyAppURL "https://wfview.org"
-#define MyAppExeName "wfview.exe"
-#define MySourceDir "C:\claude\wfview\wfview-release"
+#define MyAppExeName "wfview-win.exe"
+#define MySourceDir "C:\Claude\wfview-win\wfview-release"
 
 [Setup]
 AppId={{6A3B2F1C-4D5E-4F6A-8B9C-0D1E2F3A4B5C}
@@ -14,8 +14,8 @@ AppPublisherURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-OutputDir=C:\claude\wfview\installer_output
-OutputBaseFilename=wfview-{#MyAppVersion}-setup
+OutputDir=C:\Claude\wfview-win\installer_output
+OutputBaseFilename=wfview-win-{#MyAppVersion}-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -52,6 +52,8 @@ Source: "{#MySourceDir}\portaudio_x64.dll";  DestDir: "{app}"; Flags: ignorevers
 Source: "{#MySourceDir}\hidapi.dll";          DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MySourceDir}\opus-0.dll";          DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MySourceDir}\opengl32sw.dll";      DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MySourceDir}\dxcompiler.dll";      DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MySourceDir}\dxil.dll";            DestDir: "{app}"; Flags: ignoreversion
 
 ; FFmpeg DLLs
 Source: "{#MySourceDir}\avcodec-61.dll";      DestDir: "{app}"; Flags: ignoreversion
