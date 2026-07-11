@@ -9,6 +9,45 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QVBoxLayout>
+#include <QDialog>
+#include <QSplitter>
+#include <QTreeWidget>
+#include <QTextBrowser>
+
+#ifdef Q_OS_WIN
+#include <mmdeviceapi.h>
+#include <endpointvolume.h>
+
+// Set the Windows system output volume (0.0 - 1.0) of the default render
+// device, so the AF slider can drive the OS volume together with the
+// application-side audio gain.
+static void setWindowsSystemVolume(float volume)
+{
+    const bool comInited = SUCCEEDED(CoInitializeEx(Q_NULLPTR, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE));
+
+    IMMDeviceEnumerator* enumerator = Q_NULLPTR;
+    if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), Q_NULLPTR, CLSCTX_ALL,
+                                    __uuidof(IMMDeviceEnumerator), (void**)&enumerator)))
+    {
+        IMMDevice* device = Q_NULLPTR;
+        if (SUCCEEDED(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device)))
+        {
+            IAudioEndpointVolume* endpointVolume = Q_NULLPTR;
+            if (SUCCEEDED(device->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_ALL,
+                                            Q_NULLPTR, (void**)&endpointVolume)))
+            {
+                endpointVolume->SetMasterVolumeLevelScalar(qBound(0.0f, volume, 1.0f), Q_NULLPTR);
+                endpointVolume->Release();
+            }
+            device->Release();
+        }
+        enumerator->Release();
+    }
+
+    if (comInited)
+        CoUninitialize();
+}
+#endif
 
 #ifdef WFVIEW_IOS
 #include <QBoxLayout>
@@ -224,6 +263,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     finputbtns = new frequencyinputwidget();
     setupui = new settingswidget();
+    setupui->acceptRigListPtr(&rigList);
 
     connect(setupui, SIGNAL(havePortError(errorType)), this, SLOT(receivePortError(errorType)));
 
@@ -3333,6 +3373,9 @@ void wfmain::setManufacturer(manufacturersType_t man)
         }
     }
 
+    // The CI-V/model pulldown in the settings widget mirrors rigList.
+    if (setupui != Q_NULLPTR)
+        setupui->refreshCivAddrList();
 }
 
 void wfmain::extChangedRsPref(prefRsItem i)
@@ -5088,6 +5131,14 @@ void wfmain::on_afGainSlider_valueChanged(int value)
         prefs.localAFgain = (quint8)(value);
     }
 
+#ifdef Q_OS_WIN
+    // Drive the Windows system output volume together with the AF slider.
+    // Normalize by the slider's actual range (it is rig-dependent, not
+    // always 0-255) so that slider max equals full system volume.
+    if (ui->afGainSlider->maximum() > 0)
+        setWindowsSystemVolume((float)value / (float)ui->afGainSlider->maximum());
+#endif
+
     queue->addUnique(priorityImmediate,queueItem(funcAfGain,QVariant::fromValue<ushort>(value),false,currentReceiver));
 }
 
@@ -5220,6 +5271,94 @@ bool wfmain::on_exitBtn_clicked()
     return ret;
 }
 
+void wfmain::on_helpBtn_clicked()
+{
+    if (helpWindow == Q_NULLPTR)
+    {
+        helpWindow = new QDialog(this);
+        helpWindow->setWindowTitle(tr("ヘルプ - 操作説明書"));
+        helpWindow->resize(980, 680);
+        QVBoxLayout* helpLayout = new QVBoxLayout(helpWindow);
+        QSplitter* split = new QSplitter(helpWindow);
+        helpLayout->addWidget(split);
+
+        QTreeWidget* toc = new QTreeWidget(split);
+        toc->setHeaderLabel(tr("目次"));
+        QTextBrowser* browser = new QTextBrowser(split);
+        browser->setOpenExternalLinks(true);
+        split->addWidget(toc);
+        split->addWidget(browser);
+        split->setStretchFactor(0, 0);
+        split->setStretchFactor(1, 1);
+        split->setSizes({260, 720});
+
+        // The manual is bundled alongside the executable; fall back to the
+        // source tree location for non-packaged builds.
+        const QStringList candidates = {
+            QCoreApplication::applicationDirPath() + "/docs/操作説明書.md",
+            QCoreApplication::applicationDirPath() + "/../docs/操作説明書.md",
+            QCoreApplication::applicationDirPath() + "/../../../docs/操作説明書.md",
+        };
+
+        QString manualText;
+        for (const QString& path : candidates)
+        {
+            QFile manual(path);
+            if (manual.open(QIODevice::ReadOnly | QIODevice::Text))
+            {
+                manualText = QString::fromUtf8(manual.readAll());
+                break;
+            }
+        }
+
+        if (manualText.isEmpty())
+            browser->setPlainText(tr("操作説明書 (docs/操作説明書.md) が見つかりませんでした。"));
+        else
+            browser->setMarkdown(manualText);
+
+        // Build the table of contents from the document headings (levels
+        // 1-3). Each entry remembers its block number for jumping.
+        QTreeWidgetItem* lastItem[3] = {Q_NULLPTR, Q_NULLPTR, Q_NULLPTR};
+        for (QTextBlock block = browser->document()->begin();
+             block.isValid(); block = block.next())
+        {
+            const int level = block.blockFormat().headingLevel();
+            if (level < 1 || level > 3)
+                continue;
+
+            QTreeWidgetItem* parent = Q_NULLPTR;
+            for (int l = level - 2; l >= 0 && parent == Q_NULLPTR; l--)
+                parent = lastItem[l];
+
+            QTreeWidgetItem* item = (parent != Q_NULLPTR)
+                ? new QTreeWidgetItem(parent)
+                : new QTreeWidgetItem(toc);
+            item->setText(0, block.text());
+            item->setData(0, Qt::UserRole, block.blockNumber());
+            lastItem[level - 1] = item;
+            for (int l = level; l < 3; l++)
+                lastItem[l] = Q_NULLPTR;
+        }
+        toc->expandAll();
+
+        connect(toc, &QTreeWidget::itemClicked, browser,
+                [browser](QTreeWidgetItem* item, int) {
+            const QTextBlock block =
+                browser->document()->findBlockByNumber(item->data(0, Qt::UserRole).toInt());
+            if (!block.isValid())
+                return;
+            // Scroll to the end first so that the heading then lands at the
+            // top of the viewport rather than the bottom.
+            QTextCursor end(browser->document());
+            end.movePosition(QTextCursor::End);
+            browser->setTextCursor(end);
+            browser->setTextCursor(QTextCursor(block));
+            browser->ensureCursorVisible();
+        });
+    }
+    showAndRaiseWidget(helpWindow);
+}
+
 void wfmain::handlePttLimit()
 {
     // transmission time exceeded!
@@ -5285,14 +5424,10 @@ void wfmain::receiveATUStatus(quint8 atustatus)
 
 void wfmain::handleExtConnectBtn() {
     // from settings widget
-    if (connStatus == connDisconnected)
-    {
-        const QString profileName = setupui->currentConnectionProfileName();
-        if (!profileName.isEmpty() && connectionProfileNames().contains(profileName))
-        {
-            loadConnectionProfile(profileName);
-        }
-    }
+    // Note: do NOT reload the selected connection profile here. The profile
+    // is already applied when it is selected in the combo box; reloading it
+    // on connect would silently discard any unsaved edits (CI-V address,
+    // IP address, etc.) the user made after selecting the profile.
     on_connectBtn_clicked();
 }
 
@@ -5753,7 +5888,10 @@ void wfmain::changeModLabel(rigInput input, bool updateLevel)
 
     ui->micGainSlider->setRange(f.minVal,f.maxVal);
 
-    ui->modSliderLbl->setText(input.name);
+    QString modLabelText = input.name;
+    if (modLabelText.compare("USB", Qt::CaseInsensitive) == 0)
+        modLabelText = QStringLiteral("MD"); // 変調度 (USB modulation input)
+    ui->modSliderLbl->setText(modLabelText);
 
     if(updateLevel)
     {

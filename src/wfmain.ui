@@ -1360,6 +1360,19 @@
         </spacer>
        </item>
        <item>
+        <widget class="QPushButton" name="helpBtn">
+         <property name="focusPolicy">
+          <enum>Qt::NoFocus</enum>
+         </property>
+         <property name="toolTip">
+          <string>操作説明書を表示します</string>
+         </property>
+         <property name="text">
+          <string>ヘルプ</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="exitBtn">
          <property name="font">
           <font>

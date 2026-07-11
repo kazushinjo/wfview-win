@@ -246,6 +246,8 @@ macos:LIBS += -framework CoreAudio -framework CoreFoundation -lpthread -lopus
 # iOS: opus comes from the local static lib (added in the ios block); Qt
 # Multimedia pulls in AVFoundation/AudioToolbox itself.
 ios:LIBS += -framework CoreFoundation
+# WASAPI IAudioEndpointVolume, used to drive the OS output volume from the AF slider.
+win32:LIBS += -lole32
 
 # Do not do this, it will hang on start:
 # CONFIG(release, debug|release):DEFINES += QT_NO_DEBUG_OUTPUT
@@ -275,6 +277,7 @@ CONFIG(debug, release|debug) {
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\X64\Debug\hidapi.dll wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\x64\DebugDLL\opus-0.dll wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfview-debug\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\docs\*.* wfview-debug\docs\*.* $$escape_expand(\\n\\t))
       LIBS += -L../portaudio/msvc/X64/Debug/ -lportaudio_x64
       contains(DEFINES, FTDI_SUPPORT) {
           QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.8\imports\LibFT4222\dll\amd64\LibFT4222-64.dll wfview-debug $$escape_expand(\\n\\t))
@@ -291,7 +294,8 @@ CONFIG(debug, release|debug) {
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\win32\Debug\portaudio_x86.dll wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\Debug\hidapi.dll wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\win32\DebugDLL\opus-0.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfview-debug\rigs\*.* $$escape_expand(\\n\\t))      
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfview-debug\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\docs\*.* wfview-debug\docs\*.* $$escape_expand(\\n\\t))
       contains(DEFINES, FTDI_SUPPORT) {
           QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.8\imports\LibFT4222\dll\i386\LibFT4222.dll wfview-debug $$escape_expand(\\n\\t))
       }
@@ -323,6 +327,7 @@ CONFIG(debug, release|debug) {
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\X64\Release\hidapi.dll wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\x64\ReleaseDLL\opus-0.dll wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfview-release\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\docs\*.* wfview-release\docs\*.* $$escape_expand(\\n\\t))
       contains(DEFINES, FTDI_SUPPORT) {
           QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.8\imports\LibFT4222\dll\amd64\LibFT4222-64.dll wfview-release $$escape_expand(\\n\\t))
       }      
@@ -338,6 +343,7 @@ CONFIG(debug, release|debug) {
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\Release\hidapi.dll wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\win32\ReleaseDLL\opus-0.dll wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfview-release\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\docs\*.* wfview-release\docs\*.* $$escape_expand(\\n\\t))
       contains(DEFINES, FTDI_SUPPORT) {
             QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.8\imports\LibFT4222\dll\i386\LibFT4222.dll wfview-release $$escape_expand(\\n\\t))
       }      

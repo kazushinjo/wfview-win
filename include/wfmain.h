@@ -6,6 +6,7 @@
 #define WFMAIN_H
 
 #include <QMainWindow>
+#include <QDialog>
 #include <QCloseEvent>
 #include <QResizeEvent>
 #include <QWidget>
@@ -418,6 +419,7 @@ private slots:
     void on_tuneNowBtn_clicked();
     void on_tuneEnableChk_clicked(bool checked);
     bool on_exitBtn_clicked();
+    void on_helpBtn_clicked();
     void on_saveSettingsBtn_clicked();
     void debugBtn_clicked();
 
@@ -715,6 +717,7 @@ private:
     bandbuttons* bandbtns;
     frequencyinputwidget* finputbtns;
     settingswidget* setupui;
+    QDialog* helpWindow = Q_NULLPTR;
 
 
     rigServer* server = Q_NULLPTR;
