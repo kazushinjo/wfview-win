@@ -389,7 +389,11 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     // spectrum. Mirrors the RF/AF/SQL columns (slider on top, label below).
     {
         QVBoxLayout *wfCol = new QVBoxLayout();
-        wfCol->setSpacing(2);
+        // Match the RF/AF/SQL/Mic/TX/Mon columns' spacing (see ui_wfmain.h,
+        // all generated from wfmain.ui's <layoutdefault spacing="6">) so the
+        // WF label sits at the same vertical offset below its slider as the
+        // other labels do below theirs.
+        wfCol->setSpacing(6);
         iosWfLevelSlider = new QSlider(Qt::Vertical);
         iosWfLevelSlider->setRange(0, 160);
         iosWfLevelSlider->setValue(prefs.mainWfFloor); // finalised after loadSettings()
@@ -398,7 +402,11 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
         iosWfLevelSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         iosWfLevelSlider->setMinimumHeight(120);
         iosWfLevelLabel = new QLabel(QStringLiteral("WF"));
-        // Match the RF/AF/SQL/Mic/TX/Mon labels: default font, same height cap.
+        // Explicitly copy the sibling label's font rather than relying on
+        // inheritance, so it matches even if this label is briefly unparented
+        // at construction time.
+        iosWfLevelLabel->setFont(ui->txPowerLabel->font());
+        // Match the RF/AF/SQL/Mic/TX/Mon labels: same height cap.
         iosWfLevelLabel->setMaximumSize(16777215, 15);
         // No alignment flag, matching how the RF/AF/SQL/Mic/TX/Mon sliders and
         // labels are added in the .ui — otherwise the centered slider and the
@@ -414,10 +422,10 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
                 const int ceiling = (i == 0) ? prefs.mainPlotCeiling : prefs.subPlotCeiling;
                 receivers[i]->setWfRange(val, ceiling);
             }
-            // iOS has no Save button; persist immediately so the value is
-            // applied on the next launch. Must match the "Interface" group
-            // that saveSettings()/loadSettings() use, or it won't be read back.
-#ifdef WFVIEW_IOS
+            // Persist immediately (not just on Save/exit) so the last position
+            // survives even without an explicit save. Must match the
+            // "Interface" group that saveSettings()/loadSettings() use, or it
+            // won't be read back.
             if(settings){
                 settings->beginGroup("Interface");
                 settings->setValue("MainWfFloor", val);
@@ -425,7 +433,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
                 settings->endGroup();
                 settings->sync();
             }
-#endif
         });
     }
 #ifdef WFVIEW_IOS
@@ -451,8 +458,12 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     prefs.meter2Type = meterSWR;
     prefs.meter3Type = meterTxMod;
 
-    // The WF-level slider was built before loadSettings(); sync it to the saved
-    // value now (blocking signals so it doesn't overwrite prefs).
+    // The WF-level slider was built before loadSettings(). Unlike the other
+    // level sliders, WF has no rig-side state to resync against, so rather
+    // than restoring whatever floor was last saved, always start it centered
+    // on launch (range is 0-160, so 80 is the middle).
+    prefs.mainWfFloor = 80;
+    prefs.subWfFloor = 80;
     if(iosWfLevelSlider)
     {
         iosWfLevelSlider->blockSignals(true);
@@ -1170,6 +1181,9 @@ void wfmain::setupMainUI()
 
     ui->afGainSlider->setTickInterval(100);
     ui->afGainSlider->setSingleStep(10);
+    // Start centered on launch (range is 0-255, so 128 is the middle); the
+    // real value arrives shortly after once the rig is connected and polled.
+    ui->afGainSlider->setValue(128);
 
     ui->sqlSlider->setTickInterval(100);
     ui->sqlSlider->setSingleStep(10);
@@ -5130,6 +5144,16 @@ void wfmain::saveMemoryPreset(int presetNumber)
 \
 void wfmain::on_rfGainSlider_valueChanged(int value)
 {
+    // Persist immediately (not just on Save/exit) so the last position
+    // survives even without an explicit save. settings may not exist yet
+    // (this slot can fire from setupMainUI(), before getSettingsFilePath()
+    // constructs it).
+    if(settings){
+        settings->beginGroup("Sliders");
+        settings->setValue("RfGain", value);
+        settings->endGroup();
+        settings->sync();
+    }
     queue->addUnique(priorityImmediate,queueItem(funcRfGain,QVariant::fromValue<ushort>(value),false,currentReceiver));
 }
 
@@ -5140,6 +5164,17 @@ void wfmain::on_afGainSlider_valueChanged(int value)
         // Remember current setting.
         prefs.rxSetup.localAFgain = (quint8)(value);
         prefs.localAFgain = (quint8)(value);
+    }
+
+    // Persist immediately (not just on Save/exit) so the last position
+    // survives even without an explicit save. settings may not exist yet
+    // (this slot can fire from setupMainUI(), before getSettingsFilePath()
+    // constructs it).
+    if(settings){
+        settings->beginGroup("Radio");
+        settings->setValue("localAFgain", value);
+        settings->endGroup();
+        settings->sync();
     }
 
 #ifdef Q_OS_WIN
@@ -5155,6 +5190,16 @@ void wfmain::on_afGainSlider_valueChanged(int value)
 
 void wfmain::on_monitorSlider_valueChanged(int value)
 {
+    // Persist immediately (not just on Save/exit) so the last position
+    // survives even without an explicit save. settings may not exist yet
+    // (this slot can fire from setupMainUI(), before getSettingsFilePath()
+    // constructs it).
+    if(settings){
+        settings->beginGroup("Sliders");
+        settings->setValue("MonitorGain", value);
+        settings->endGroup();
+        settings->sync();
+    }
     queue->addUnique(priorityImmediate,queueItem(funcMonitorGain,QVariant::fromValue<ushort>(value),false,currentReceiver));
 }
 
@@ -5390,6 +5435,16 @@ void wfmain::on_connectBtn_clicked()
 
 void wfmain::on_sqlSlider_valueChanged(int value)
 {
+    // Persist immediately (not just on Save/exit) so the last position
+    // survives even without an explicit save. settings may not exist yet
+    // (this slot can fire from setupMainUI(), before getSettingsFilePath()
+    // constructs it).
+    if(settings){
+        settings->beginGroup("Sliders");
+        settings->setValue("Squelch", value);
+        settings->endGroup();
+        settings->sync();
+    }
     queue->addUnique(priorityImmediate,queueItem(funcSquelch,QVariant::fromValue<ushort>(value),false,currentReceiver));
 }
 
@@ -5872,11 +5927,31 @@ void wfmain::receiveMonitor(bool en)
 
 void wfmain::on_txPowerSlider_valueChanged(int value)
 {
+    // Persist immediately (not just on Save/exit) so the last position
+    // survives even without an explicit save. settings may not exist yet
+    // (this slot can fire from setupMainUI(), before getSettingsFilePath()
+    // constructs it).
+    if(settings){
+        settings->beginGroup("Sliders");
+        settings->setValue("TxPower", value);
+        settings->endGroup();
+        settings->sync();
+    }
     queue->addUnique(priorityImmediate,queueItem(funcRFPower,QVariant::fromValue<ushort>(value),false));
 }
 
 void wfmain::on_micGainSlider_valueChanged(int value)
 {
+    // Persist immediately (not just on Save/exit) so the last position
+    // survives even without an explicit save. settings may not exist yet
+    // (this slot can fire from setupMainUI(), before getSettingsFilePath()
+    // constructs it).
+    if(settings){
+        settings->beginGroup("Sliders");
+        settings->setValue("MicGain", value);
+        settings->endGroup();
+        settings->sync();
+    }
     processChangingCurrentModLevel((quint8) value);
 }
 
@@ -7893,8 +7968,11 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
 
         if(prefs.enableLAN)
         {
-            ui->afGainSlider->setValue(prefs.localAFgain);
-            queue->receiveValue(funcAfGain,quint8(prefs.localAFgain),currentReceiver);
+            // Push whatever the AF slider currently shows — centered at
+            // launch (see setupMainUI()) or wherever the user has since
+            // moved it — instead of restoring prefs.localAFgain, which would
+            // silently yank it away from that position on every connect.
+            queue->receiveValue(funcAfGain,quint8(ui->afGainSlider->value()),currentReceiver);
         } else {
             // If not network connected, select the requested PTT type.
             emit setPTTType(prefs.pttType);
