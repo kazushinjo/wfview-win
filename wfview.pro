@@ -31,7 +31,7 @@ TEMPLATE = app
 #   qmake ... VERSION="1.2.3"
 # If set, it replaces the default WFVIEW_VERSION.
 isEmpty(VERSION) {
-    DEFINES += WFVIEW_VERSION=\\\"2.22\\\"
+    DEFINES += WFVIEW_VERSION=\\\"2.23\\\"
 } else {
     DEFINES += WFVIEW_VERSION=\\\"$$VERSION\\\"
 }
