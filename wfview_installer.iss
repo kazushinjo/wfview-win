@@ -1,5 +1,5 @@
 #define MyAppName "wfview"
-#define MyAppVersion "2.23"
+#define MyAppVersion "2.24"
 #define MyAppPublisher "wf-group"
 #define MyAppURL "https://wfview.org"
 #define MyAppExeName "wfview-win.exe"
