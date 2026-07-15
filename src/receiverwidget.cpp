@@ -49,6 +49,9 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         selectedVFO = uchar(en);
     });
 
+    freqLabel = new QLabel(tr("周波数"), this);
+    freqLabel->setHidden(true);
+
     freqUpButton = new QPushButton(tr("▲"), this);
     freqUpButton->setHidden(true);
     freqUpButton->setFocusPolicy(Qt::StrongFocus);
@@ -143,9 +146,9 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
                 vfoSelectButton->setHidden(false);
                 freqUpButton->setHidden(false);
                 freqDownButton->setHidden(false);
-                displayLayout->addWidget(vfoSelectButton);
-                displayLayout->addWidget(freqDownButton);
-                displayLayout->addWidget(freqUpButton);
+                if (receiver) {
+                    displayLayout->addWidget(vfoSelectButton);
+                }
 
                 displayLSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
                 displayLayout->addSpacerItem(displayLSpacer);
@@ -175,10 +178,21 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
                         splitButton->setHidden(false);
                         displayLayout->addWidget(splitButton);
                     }
+                } else {
+                    displayLayout->addWidget(freqDownButton);
+                    displayLayout->addWidget(freqUpButton);
                 }
             }
             displayRSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
             displayLayout->addSpacerItem(displayRSpacer);
+            if (numVFO > 1 && !receiver) {
+                displayLayout->addWidget(vfoSelectButton);
+                displayLayout->addSpacerItem(new QSpacerItem(8,0,QSizePolicy::Fixed,QSizePolicy::Fixed));
+                freqLabel->setHidden(false);
+                displayLayout->addWidget(freqLabel);
+                displayLayout->addWidget(freqDownButton);
+                displayLayout->addWidget(freqUpButton);
+            }
         } else {
             fr->setMinimumSize(180,20);
             fr->setMaximumSize(180,20);

@@ -205,6 +205,7 @@ private:
     QList <freqCtrl*> freqDisplay;
     QSpacerItem* displayLSpacer;
     QPushButton* vfoSelectButton;
+    QLabel* freqLabel;
     QPushButton* freqUpButton;
     QPushButton* freqDownButton;
     QSpacerItem* displayCSpacer;

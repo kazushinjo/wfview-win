@@ -271,69 +271,6 @@
           </layout>
          </item>
          <item>
-          <layout class="QVBoxLayout" name="tuningLayout">
-           <property name="rightMargin">
-            <number>0</number>
-           </property>
-           <item>
-            <widget class="QDial" name="freqDial">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>130</width>
-               <height>130</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>190</width>
-               <height>190</height>
-              </size>
-             </property>
-             <property name="accessibleName">
-              <string>Tuning Dial</string>
-             </property>
-             <property name="minimum">
-              <number>3000</number>
-             </property>
-             <property name="maximum">
-              <number>4000</number>
-             </property>
-             <property name="singleStep">
-              <number>10</number>
-             </property>
-             <property name="pageStep">
-              <number>100</number>
-             </property>
-             <property name="wrapping">
-              <bool>true</bool>
-             </property>
-             <property name="notchesVisible">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QComboBox" name="tuningStepCombo">
-             <property name="toolTip">
-              <string>Tuning Step Selection possibly. Or not...</string>
-             </property>
-             <property name="accessibleName">
-              <string>Tuning Step Selection</string>
-             </property>
-             <property name="sizeAdjustPolicy">
-              <enum>QComboBox::AdjustToContents</enum>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
           <layout class="QVBoxLayout" name="controlsLayout">
            <item>
             <spacer name="verticalSpacer">
@@ -1064,8 +1001,14 @@
              </layout>
             </widget>
            </item>
-           <item>
+           <item alignment="Qt::AlignLeft">
             <widget class="QGroupBox" name="preampAttGroup">
+             <property name="minimumSize">
+              <size>
+               <width>260</width>
+               <height>0</height>
+              </size>
+             </property>
              <property name="title">
               <string>Preamp/Att</string>
              </property>
@@ -1181,6 +1124,69 @@
                </widget>
               </item>
              </layout>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="tuningLayout">
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QDial" name="freqDial">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>130</width>
+               <height>130</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>190</width>
+               <height>190</height>
+              </size>
+             </property>
+             <property name="accessibleName">
+              <string>Tuning Dial</string>
+             </property>
+             <property name="minimum">
+              <number>3000</number>
+             </property>
+             <property name="maximum">
+              <number>4000</number>
+             </property>
+             <property name="singleStep">
+              <number>10</number>
+             </property>
+             <property name="pageStep">
+              <number>100</number>
+             </property>
+             <property name="wrapping">
+              <bool>true</bool>
+             </property>
+             <property name="notchesVisible">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="tuningStepCombo">
+             <property name="toolTip">
+              <string>Tuning Step Selection possibly. Or not...</string>
+             </property>
+             <property name="accessibleName">
+              <string>Tuning Step Selection</string>
+             </property>
+             <property name="sizeAdjustPolicy">
+              <enum>QComboBox::AdjustToContents</enum>
+             </property>
             </widget>
            </item>
           </layout>
