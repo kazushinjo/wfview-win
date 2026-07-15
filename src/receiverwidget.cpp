@@ -139,19 +139,26 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         {
             fr->setMinimumSize(280,30);
             fr->setMaximumSize(280,30);
-            displayLayout->addWidget(fr);
 
             // Add the VFO buttons here.
             if (numVFO > 1) {
                 vfoSelectButton->setHidden(false);
+                freqLabel->setHidden(false);
                 freqUpButton->setHidden(false);
                 freqDownButton->setHidden(false);
-                if (receiver) {
-                    displayLayout->addWidget(vfoSelectButton);
-                }
 
+                // Frequency display, VFO select, and step buttons, followed
+                // immediately by A<>B/A=B/V/M/SPLIT, all grouped together.
                 displayLSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
                 displayLayout->addSpacerItem(displayLSpacer);
+                displayLayout->addWidget(fr);
+                displayLayout->addSpacerItem(new QSpacerItem(30,0,QSizePolicy::Fixed,QSizePolicy::Fixed));
+                displayLayout->addWidget(vfoSelectButton);
+                displayLayout->addSpacerItem(new QSpacerItem(10,0,QSizePolicy::Fixed,QSizePolicy::Fixed));
+                displayLayout->addWidget(freqLabel);
+                displayLayout->addWidget(freqDownButton);
+                displayLayout->addWidget(freqUpButton);
+
                 if (!receiver) {
                     if (rigCaps->commands.contains(funcVFOEqualAB))
                     {
@@ -172,27 +179,16 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
                         satelliteButton->setHidden(false);
                         displayLayout->addWidget(satelliteButton);
                     }
-                    displayMSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
-                    displayLayout->addSpacerItem(displayMSpacer);
                     if (rigCaps->commands.contains(funcSplitStatus)) {
                         splitButton->setHidden(false);
                         displayLayout->addWidget(splitButton);
                     }
-                } else {
-                    displayLayout->addWidget(freqDownButton);
-                    displayLayout->addWidget(freqUpButton);
                 }
+            } else {
+                displayLayout->addWidget(fr);
             }
-            displayRSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
+            displayRSpacer = new QSpacerItem(20,0,QSizePolicy::Fixed,QSizePolicy::Fixed);
             displayLayout->addSpacerItem(displayRSpacer);
-            if (numVFO > 1 && !receiver) {
-                displayLayout->addWidget(vfoSelectButton);
-                displayLayout->addSpacerItem(new QSpacerItem(8,0,QSizePolicy::Fixed,QSizePolicy::Fixed));
-                freqLabel->setHidden(false);
-                displayLayout->addWidget(freqLabel);
-                displayLayout->addWidget(freqDownButton);
-                displayLayout->addWidget(freqUpButton);
-            }
         } else {
             fr->setMinimumSize(180,20);
             fr->setMaximumSize(180,20);
