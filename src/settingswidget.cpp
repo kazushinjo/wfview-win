@@ -7,6 +7,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QRegularExpressionValidator>
 
 #define setchk(a,b) quietlyUpdateCheckbox(a,b)
 
@@ -261,6 +262,10 @@ void settingswidget::populateComboBoxes()
     ui->audioTXCodecCombo->blockSignals(false);
 
     ui->controlPortTxt->setValidator(new QIntValidator(this));
+    QRegularExpressionValidator *halfWidthValidator = new QRegularExpressionValidator(QRegularExpression("[\\x20-\\x7E]*"), this);
+    ui->ipAddressTxt->setValidator(halfWidthValidator);
+    ui->usernameTxt->setValidator(halfWidthValidator);
+    ui->passwordTxt->setValidator(halfWidthValidator);
 
     ui->modInputData2ComboText->setVisible(false);
     ui->modInputData2Combo->setVisible(false);
