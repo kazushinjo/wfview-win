@@ -4,12 +4,41 @@
 
 #include <QAbstractItemView>
 #include <QApplication>
+#include <QGuiApplication>
 #include <QHBoxLayout>
+#include <QInputMethod>
 #include <QLabel>
 #include <QPushButton>
 #include <QRegularExpressionValidator>
+#include <QScreen>
 
 #define setchk(a,b) quietlyUpdateCheckbox(a,b)
+
+// QValidator does not intercept IME-committed text (e.g. Japanese full-width
+// conversion), so strip anything outside printable half-width ASCII after
+// the fact as well. Returns true if the field's text was changed.
+static bool enforceHalfWidth(QLineEdit *edit)
+{
+    const QString original = edit->text();
+    QString filtered;
+    filtered.reserve(original.size());
+    for (const QChar &c : original)
+    {
+        if (c.unicode() >= 0x20 && c.unicode() <= 0x7E)
+            filtered.append(c);
+    }
+    if (filtered == original)
+        return false;
+
+    // Deliberately do not block signals: setText() below re-emits
+    // textChanged(), which re-enters this function and terminates
+    // immediately next time since filtered == original by then.
+    const int removed = original.size() - filtered.size();
+    const int cursorPos = edit->cursorPosition();
+    edit->setText(filtered);
+    edit->setCursorPosition(qMax(0, cursorPos - removed));
+    return true;
+}
 
 
 settingswidget::settingswidget(QWidget *parent) :
@@ -17,6 +46,12 @@ settingswidget::settingswidget(QWidget *parent) :
     ui(new Ui::settingswidget)
 {
     ui->setupUi(this);
+
+    connect(QGuiApplication::inputMethod(), &QInputMethod::keyboardRectangleChanged,
+            this, &settingswidget::adjustForOnscreenKeyboard);
+    connect(QGuiApplication::inputMethod(), &QInputMethod::visibleChanged,
+            this, &settingswidget::adjustForOnscreenKeyboard);
+
     createConnectionProfileControls();
     populateCivAddrCombo();
     if (ui->rigCIVaddrCombo->lineEdit() != Q_NULLPTR)
@@ -266,6 +301,22 @@ void settingswidget::populateComboBoxes()
     ui->ipAddressTxt->setValidator(halfWidthValidator);
     ui->usernameTxt->setValidator(halfWidthValidator);
     ui->passwordTxt->setValidator(halfWidthValidator);
+    ui->clusterUsernameLineEdit->setValidator(halfWidthValidator);
+    ui->clusterPasswordLineEdit->setValidator(halfWidthValidator);
+    // QValidator alone does not intercept IME-committed text (e.g. Japanese
+    // full-width conversion), so restrict the input method itself as well.
+    ui->ipAddressTxt->setInputMethodHints(Qt::ImhLatinOnly);
+    ui->usernameTxt->setInputMethodHints(Qt::ImhLatinOnly);
+    ui->passwordTxt->setInputMethodHints(Qt::ImhLatinOnly | Qt::ImhSensitiveData);
+    ui->clusterUsernameLineEdit->setInputMethodHints(Qt::ImhLatinOnly);
+    ui->clusterPasswordLineEdit->setInputMethodHints(Qt::ImhLatinOnly | Qt::ImhSensitiveData);
+    // ImhLatinOnly is only a hint that IMEs may ignore; actually disable the
+    // input method for these fields so IME composition cannot engage at all.
+    ui->ipAddressTxt->setAttribute(Qt::WA_InputMethodEnabled, false);
+    ui->usernameTxt->setAttribute(Qt::WA_InputMethodEnabled, false);
+    ui->passwordTxt->setAttribute(Qt::WA_InputMethodEnabled, false);
+    ui->clusterUsernameLineEdit->setAttribute(Qt::WA_InputMethodEnabled, false);
+    ui->clusterPasswordLineEdit->setAttribute(Qt::WA_InputMethodEnabled, false);
 
     ui->modInputData2ComboText->setVisible(false);
     ui->modInputData2Combo->setVisible(false);
@@ -2506,6 +2557,18 @@ void settingswidget::on_clusterPasswordLineEdit_editingFinished()
     prefs->clusterTcpPassword =  ui->clusterPasswordLineEdit->text();
 }
 
+void settingswidget::on_clusterUsernameLineEdit_textChanged(const QString &arg1)
+{
+    Q_UNUSED(arg1)
+    enforceHalfWidth(ui->clusterUsernameLineEdit);
+}
+
+void settingswidget::on_clusterPasswordLineEdit_textChanged(const QString &arg1)
+{
+    Q_UNUSED(arg1)
+    enforceHalfWidth(ui->clusterPasswordLineEdit);
+}
+
 void settingswidget::on_clusterTimeoutLineEdit_editingFinished()
 {
     prefs->clusterTimeout = ui->clusterTimeoutLineEdit->displayText().toInt();
@@ -2551,12 +2614,16 @@ void settingswidget::on_adminLoginChk_clicked(bool checked)
 
 void settingswidget::on_ipAddressTxt_textChanged(const QString &arg1)
 {
+    if (enforceHalfWidth(ui->ipAddressTxt))
+        return; // setText() above will re-trigger this slot with the filtered text
     udpPrefs->ipAddress = arg1;
     emit changedUdpPref(u_ipAddress);
 }
 
 void settingswidget::on_usernameTxt_textChanged(const QString &arg1)
 {
+    if (enforceHalfWidth(ui->usernameTxt))
+        return;
     udpPrefs->username = arg1;
     emit changedUdpPref(u_username);
 }
@@ -2607,8 +2674,57 @@ void settingswidget::on_scopePortTxt_textChanged(const QString &arg1)
 
 void settingswidget::on_passwordTxt_textChanged(const QString &arg1)
 {
+    if (enforceHalfWidth(ui->passwordTxt))
+        return;
     udpPrefs->password = arg1;
     emit changedUdpPref(u_password);
+}
+
+// On small displays, the Windows on-screen keyboard can cover the
+// userid/password fields being edited. When that happens, nudge this
+// (top-level, freely-movable) window up just enough to keep the focused
+// field visible, and put it back once the keyboard is dismissed.
+void settingswidget::adjustForOnscreenKeyboard()
+{
+    if (!isVisible() || !window()->isWindow())
+        return;
+
+    QInputMethod *im = QGuiApplication::inputMethod();
+    const QRect kbRect = im->keyboardRectangle().toRect();
+    const bool kbVisible = im->isVisible() && !kbRect.isEmpty();
+
+    QWidget *fw = QApplication::focusWidget();
+    const bool relevantFieldFocused = fw && isAncestorOf(fw) &&
+        (fw == ui->ipAddressTxt || fw == ui->usernameTxt || fw == ui->passwordTxt);
+
+    QWidget *win = window();
+
+    if (kbVisible && relevantFieldFocused)
+    {
+        const QRect fieldGlobalRect(fw->mapToGlobal(QPoint(0, 0)), fw->size());
+        const int overlap = fieldGlobalRect.bottom() - kbRect.top();
+        if (overlap > 0)
+        {
+            if (!windowMovedForKeyboard)
+            {
+                posBeforeKeyboardAdjust = win->pos();
+                windowMovedForKeyboard = true;
+            }
+            int newY = win->y() - overlap - 12; // small margin above the keyboard
+            QScreen *scr = win->screen();
+            const int minY = scr ? scr->availableGeometry().top() : 0;
+            if (newY < minY)
+                newY = minY;
+            win->move(win->x(), newY);
+        }
+        return;
+    }
+
+    if (windowMovedForKeyboard)
+    {
+        win->move(posBeforeKeyboardAdjust);
+        windowMovedForKeyboard = false;
+    }
 }
 
 void settingswidget::on_audioDuplexCombo_currentIndexChanged(int index)
