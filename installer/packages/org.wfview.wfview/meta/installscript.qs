@@ -17,10 +17,10 @@ Component.prototype.createOperations = function()
         }
 
         component.addOperation("CreateShortcut",
-            "@TargetDir@/wfview.exe",
+            "@TargetDir@/wfview-win.exe",
             "@StartMenuDir@/wfview.lnk",
             "workingDirectory=@TargetDir@",
-            "iconPath=@TargetDir@/wfview.exe");
+            "iconPath=@TargetDir@/wfview-win.exe");
     }
 }
 

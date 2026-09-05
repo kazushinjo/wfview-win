@@ -208,7 +208,7 @@ jobs:
             --release ^
             --printsupport ^
             --no-system-d3d-compiler ^
-            wfview\wfview-release\wfview.exe
+            wfview\wfview-release\wfview-win.exe
 
       - name: Build Qt Installer
         if: steps.version_info.outputs.has_tag == 'true'
@@ -433,7 +433,7 @@ jobs:
             --release ^
             --printsupport ^
             --no-system-d3d-compiler ^
-            wfview\wfview-release\wfview.exe
+            wfview\wfview-release\wfview-win.exe
 
       - name: Build Qt Installer
         if: steps.version_info.outputs.has_tag == 'true'
