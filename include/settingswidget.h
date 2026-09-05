@@ -115,6 +115,7 @@ signals:
 
 private slots:
     void runShortcut(const QKeySequence k);
+    void adjustForOnscreenKeyboard();
     void on_settingsList_currentRowChanged(int currentRow);
     void onServerUserFieldChanged();
     void on_lanEnableBtn_clicked(bool checked);
@@ -171,6 +172,8 @@ private slots:
     void on_clusterTcpPortLineEdit_editingFinished();
     void on_clusterUsernameLineEdit_editingFinished();
     void on_clusterPasswordLineEdit_editingFinished();
+    void on_clusterUsernameLineEdit_textChanged(const QString &arg1);
+    void on_clusterPasswordLineEdit_textChanged(const QString &arg1);
     void on_clusterTimeoutLineEdit_editingFinished();
     void on_clusterUdpPortLineEdit_editingFinished();
     void on_clusterSkimmerSpotsEnable_clicked(bool checked);
@@ -330,6 +333,11 @@ private:
     QList<QShortcut *> shortcuts;
     QShortcut* setupKeyShortcut(const QKeySequence k);
     void setupKeyShortcuts();
+
+    // On small-screen/touch devices, keep the userid/password fields visible
+    // above the on-screen keyboard rather than letting it cover them.
+    QPoint posBeforeKeyboardAdjust;
+    bool windowMovedForKeyboard = false;
 
 
     // Utility:
