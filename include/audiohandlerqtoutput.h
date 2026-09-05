@@ -22,6 +22,7 @@ protected:
 
 private:
     void writeToOutputDevice(QByteArray data, quint32 seq, float amplitudePeak, float amplitudeRms);
+    void drainPendingAudio();
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     QAudioOutput*    audioOutput {nullptr};
@@ -30,6 +31,8 @@ private:
 #endif
 
     QIODevice*       audioDevice {nullptr};
+    QByteArray        pendingAudio;
+    QTimer*           drainTimer {nullptr};
 
 private slots:
     void onConverted(audioPacket pkt);

@@ -29,6 +29,13 @@ bool audioHandlerQtOutput::openDevice() noexcept
     audioDevice = audioOutput->start();
     if (!audioDevice) return false;
 
+    // QAudioSink may accept only part of a network packet.  Drain retained
+    // bytes frequently rather than losing that remainder.
+    drainTimer = new QTimer(this);
+    drainTimer->setInterval(5);
+    connect(drainTimer, &QTimer::timeout, this, &audioHandlerQtOutput::drainPendingAudio);
+    drainTimer->start();
+
     // Pre-fill half the buffer with silence so ALSA has data to pull
     // before the first real audio packet arrives from the network.
     {
@@ -48,6 +55,12 @@ bool audioHandlerQtOutput::openDevice() noexcept
 
 void audioHandlerQtOutput::closeDevice() noexcept
 {
+    if (drainTimer) {
+        drainTimer->stop();
+        drainTimer->deleteLater();
+        drainTimer = nullptr;
+    }
+    pendingAudio.clear();
     if (audioOutput) {
         if (audioDevice) {
             disconnect(audioDevice, nullptr, this, nullptr);
@@ -70,10 +83,6 @@ void audioHandlerQtOutput::incomingAudio(audioPacket packet)
 void audioHandlerQtOutput::onConverted(audioPacket pkt)
 {
     if (!audioOutput || !audioDevice || pkt.data.isEmpty()) return;
-    const int nowToPktMs = pkt.time.msecsTo(QTime::currentTime());
-    if (nowToPktMs > setupData.latency * 1.5) {
-        return; // late frame ( more than latency * 1.5), drop
-    }
     writeToOutputDevice(pkt.data, pkt.seq, pkt.amplitudePeak, pkt.amplitudeRMS);
 }
 
@@ -82,20 +91,6 @@ void audioHandlerQtOutput::writeToOutputDevice(QByteArray data, quint32 seq, flo
     Q_UNUSED(seq);
     if (!audioOutput || !audioDevice) return;
 
-    // Recover from underrun: re-prime the buffer with silence so the device
-    // has a cushion before real audio resumes, preventing click cascades.
-    if (isUnderrun.load(std::memory_order_relaxed)) {
-        const int prefillBytes = audioOutput->bufferSize() / 2;
-        const int freeBytes    = static_cast<int>(audioOutput->bytesFree());
-        const int silenceBytes = qMin(prefillBytes, freeBytes);
-        if (silenceBytes > 0) {
-            QByteArray silence(silenceBytes, '\0');
-            audioDevice->write(silence.constData(), silence.size());
-        }
-        isUnderrun.store(false, std::memory_order_relaxed);
-        if (underTimer && underTimer->isActive()) underTimer->stop();
-    }
-
     qint64 buffered = audioOutput->bufferSize() - audioOutput->bytesFree();
     int devLatencyMs = static_cast<int>(nativeFormat.durationForBytes(buffered) / 1000);
     int pipelineMs   = lastReceived.isValid() ? static_cast<int>(lastReceived.elapsed()) : 0;
@@ -103,18 +98,27 @@ void audioHandlerQtOutput::writeToOutputDevice(QByteArray data, quint32 seq, flo
     int prev = currentLatency.load(std::memory_order_relaxed);
     currentLatency.store(static_cast<int>(prev * 0.8 + newLatency * 0.2), std::memory_order_relaxed);
 
-    qint64 toWrite = data.size();
-    const char* p  = data.constData();
-    while (toWrite > 0) {
-        qint64 written = audioDevice->write(p, toWrite);
-        if (written <= 0) break;
-        p       += written;
-        toWrite -= written;
-    }
+    pendingAudio.append(data);
+    // Absorb short network bursts but prevent unbounded accumulated latency.
+    const int maxPending = qMax(audioOutput->bufferSize() * 8, data.size() * 8);
+    if (pendingAudio.size() > maxPending)
+        pendingAudio.remove(0, pendingAudio.size() - maxPending);
+    drainPendingAudio();
 
     lastReceived.restart();
     amplitude.store(ampPeak, std::memory_order_relaxed);
     emit haveLevels(amplitudePeak(), static_cast<quint16>(ampRms * 255.0f), setupData.latency, currentLatency.load(), isUnderrun.load(), isOverrun.load());
+}
+
+void audioHandlerQtOutput::drainPendingAudio()
+{
+    if (!audioOutput || !audioDevice || pendingAudio.isEmpty()) return;
+    while (!pendingAudio.isEmpty()) {
+        const qint64 written = audioDevice->write(pendingAudio.constData(), pendingAudio.size());
+        if (written <= 0) break;
+        pendingAudio.remove(0, static_cast<int>(written));
+    }
+    if (pendingAudio.isEmpty()) isUnderrun.store(false, std::memory_order_relaxed);
 }
 
 QAudioFormat audioHandlerQtOutput::getNativeFormat()
