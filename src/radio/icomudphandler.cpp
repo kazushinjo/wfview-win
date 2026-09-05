@@ -308,7 +308,14 @@ void icomUdpHandler::dataReceived()
                     if (txSetup.codec == 0) {
                         txString = "(no tx)";
                     }
-                    status.message = QString("<pre>%1 rx latency: %2 / rtt: %3 ms / loss: %4/%5</pre>").arg(txString).arg(tempLatency).arg(status.networkLatency, 3).arg(status.packetsLost, 3).arg(status.packetsSent, 3);
+                    // packetsLost/packetsSent above are a cumulative average
+                    // since connect and can look healthy even while audio is
+                    // audibly glitching in short, sharp bursts. audioDrops is
+                    // the opposite: packets the audio pipeline itself just
+                    // discarded, sampled fresh on every ping (~100ms) instead
+                    // of averaged over the whole session.
+                    int audioDrops = (audio != Q_NULLPTR) ? audio->fetchAndResetRecentAudioDrops() : 0;
+                    status.message = QString("<pre>%1 rx latency: %2 / rtt: %3 ms / loss: %4/%5 / audio drops: %6</pre>").arg(txString).arg(tempLatency).arg(status.networkLatency, 3).arg(status.packetsLost, 3).arg(status.packetsSent, 3).arg(audioDrops);
                     // We are only really interested in audio timeDifference.
                     status.timeDifference = audio->getTimeDifference();
                     emit haveNetworkStatus(status);

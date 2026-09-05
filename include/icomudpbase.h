@@ -164,13 +164,14 @@ protected:
 
     QElapsedTimer mono;
     bool    haveSync = false;
-    quint32 radioBase = 0;     // radio uptime ms at sync
+    int     radioBase = 0;     // radio uptime ms at sync (normDay()-wrapped, so fits in int)
     qint64  localBase = 0;     // local monotonic ms at sync
     int     pingDriftMs = 0;   // signed drift estimate (radio ahead/behind prediction)
     int     badSyncCount = 0;
 
     int pingLatenessMs = 0;   // +ve = path delay vs prediction
     int pingBaselineMs = 0;   // learned steady-state delay
+    bool baselineValid = false;
 
 
 

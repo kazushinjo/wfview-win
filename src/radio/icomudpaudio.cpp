@@ -216,6 +216,7 @@ void icomUdpAudio::dataReceived()
                     if (++latencyCounter > 5) {
                         qInfo(logUdp()) << "Latency sustained -> flushing audio";
                         latencyCounter = 0;
+                        recentExcessLatencyDrops++;
                         //flushAudio();   // clear queue / reset decoder
                         break;
                     }
@@ -235,8 +236,6 @@ void icomUdpAudio::dataReceived()
 
                 // Icom PCM sequence numbers advance by two. Conceal short UDP gaps by
                 // repeating the last packet, preserving audio timing without a click.
-                static quint32 lastEmittedSeq = 0;
-                static audioPacket lastEmittedAudio;
                 if (lastEmittedSeq && !lastEmittedAudio.data.isEmpty() && tempAudio.seq > lastEmittedSeq + 2) {
                     const quint32 missing = qMin<quint32>((tempAudio.seq - lastEmittedSeq) / 2 - 1, 25);
                     for (quint32 i = 0; i < missing; ++i) {

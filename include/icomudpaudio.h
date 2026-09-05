@@ -40,6 +40,23 @@ public:
 
 	int audioLatency = 0;
 
+	// Count of RX audio packets dropped in the last short window (since the
+	// previous call), combining both drop points: whole packets skipped here
+	// in dataReceived() for sustained excess latency, and packets discarded
+	// downstream in the output handler (late frames, stale/reordered
+	// duplicates, gaps given up on -- see audioHandlerBase::noteAudioDrop()).
+	// The lifetime packetsLost/packetsSent ratio shown in the connection
+	// status is a cumulative average since connect and hides short, sharp
+	// glitches; this is meant to be sampled every second or two instead.
+	int fetchAndResetRecentAudioDrops()
+	{
+		int n = recentExcessLatencyDrops;
+		recentExcessLatencyDrops = 0;
+		if (rxaudio != Q_NULLPTR)
+			n += rxaudio->fetchAndResetRecentDrops();
+		return n;
+	}
+
 signals:
     void haveAudioData(audioPacket data);
 
@@ -95,7 +112,21 @@ private:
     qint64  audioBaseNs  = 0;       // base arrival time (monotonic)
     int     audioPktMs   = 20;      // TODO set to your actual framing (10/20/40ms etc)
     int     latencyCounter = 0;
+    // Whole incoming packets skipped in dataReceived() because the network's
+    // ping-measured lateness sustainedly exceeded the configured RX jitter
+    // buffer (see the "Latency sustained -> flushing audio" qInfo). Read via
+    // fetchAndResetRecentExcessLatencyDrops(); same thread as dataReceived()
+    // so a plain int is fine.
+    int     recentExcessLatencyDrops = 0;
 
+    // Short-UDP-gap concealment (dataReceived()): repeats the last received
+    // packet's audio under the missing extended seq numbers instead of
+    // leaving a hole, preserving audio timing without a click. Members
+    // rather than function-local statics so a second icomUdpAudio instance
+    // in the same process (e.g. a second simultaneous rig connection) gets
+    // its own concealment state instead of sharing one.
+    quint32     lastEmittedSeq = 0;
+    audioPacket lastEmittedAudio;
 
 };
 

@@ -51,6 +51,15 @@ public:
     int latencyMs() const noexcept { return static_cast<int>(currentLatency.load(std::memory_order_relaxed)); }
     quint16 amplitudePeak() const noexcept { return static_cast<quint16>(amplitude.load(std::memory_order_relaxed) * 255.0f); }
 
+    // Count of audio packets discarded right before/at playback (late frames,
+    // stale reordered/retransmitted duplicates, gaps given up on) since the
+    // last call. The lifetime packetsLost/packetsSent ratio shown elsewhere
+    // is a cumulative average since connect and hides short, sharp bursts of
+    // audio glitching -- this is a short-window counter meant to be sampled
+    // periodically (e.g. every second or two) to see those bursts. Safe to
+    // call from another thread: backed by a relaxed atomic exchange.
+    int fetchAndResetRecentDrops() noexcept { return recentDrops.exchange(0, std::memory_order_relaxed); }
+
     void dispose();
     virtual void start();
     virtual void stop();
@@ -89,6 +98,10 @@ protected:
 
     void reportError(const QString& msg);
 
+    // Subclasses call this wherever they discard an audio packet instead of
+    // playing it (see fetchAndResetRecentDrops() above).
+    void noteAudioDrop() noexcept { recentDrops.fetch_add(1, std::memory_order_relaxed); }
+
 protected:
     audioSetup       setupData{};
     QAudioFormat     radioFormat;
@@ -110,6 +123,7 @@ protected:
     std::atomic<float> amplitude {0.0f};
     std::atomic<bool>  isUnderrun {false};
     std::atomic<bool>  isOverrun  {false};
+    std::atomic<int>   recentDrops {0};
 
     QElapsedTimer    lastReceived;
 

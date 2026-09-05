@@ -50,9 +50,12 @@ void icomUdpBase::dataReceived(QByteArray r)
         control_packet_t in = (control_packet_t)r.constData();
         if (in->type == 0x01 && in->len == 0x10)
         {
-            // Single packet request
-            packetsLost++;
-            congestion = static_cast<double>(packetsSent) / packetsLost * 100;
+            // Single packet request. packetsLost/congestion count distinct
+            // packets that needed at least one retransmit, not every repeat
+            // request for the same packet -- otherwise a packet that gets
+            // re-requested several times inflates packetsLost past
+            // packetsSent, which showed up as a nonsensical "loss: 5144/4343"
+            // (lost > sent) in the connection status.
             txBufferMutex.lock();
             auto match = txSeqBuf.find(in->seq);
             if (match != txSeqBuf.end()) {
@@ -60,6 +63,10 @@ void icomUdpBase::dataReceived(QByteArray r)
                 // Send "untracked" as it has already been sent once.
                 // Don't constantly retransmit the same packet, give-up eventually
                 qDebug(logUdp()) << this->metaObject()->className() << ": Sending (single packet) retransmit of " << QString("0x%1").arg(match->seqNum, 0, 16);
+                if (match->retransmitCount == 0) {
+                    packetsLost++;
+                    congestion = static_cast<double>(packetsSent) / packetsLost * 100;
+                }
                 match->retransmitCount++;
                 udpMutex.lock();
                 udp->writeDatagram(match->data, radioIP, port);
@@ -70,6 +77,11 @@ void icomUdpBase::dataReceived(QByteArray r)
                     << QString("0x%1").arg(in->seq, 0, 16) <<
                     "not found, have " << QString("0x%1").arg(txSeqBuf.firstKey(), 0, 16) <<
                     "to" << QString("0x%1").arg(txSeqBuf.lastKey(), 0, 16);
+                // Already gone from the buffer (aged out or purged), so we
+                // have no retransmitCount to gate on -- each occurrence is a
+                // genuinely failed resend, count it.
+                packetsLost++;
+                congestion = static_cast<double>(packetsSent) / packetsLost * 100;
             }
             txBufferMutex.unlock();
         }
@@ -120,11 +132,12 @@ void icomUdpBase::dataReceived(QByteArray r)
                 const qint64 localNow = mono.elapsed();          // monotonic ms
                 const int    radioNow = normDay(int(in->time));  // ms since startup, wrapped daily
 
-                // Maintain a prediction of radioNow from monotonic time (one-time sync / occasional rebase)
-                static bool  haveSync = false;
-                static int   radioBase = 0;
-                static qint64 localBase = 0;
-
+                // Maintain a prediction of radioNow from monotonic time (one-time sync / occasional
+                // rebase). These live as per-instance members (icomUdpBase::haveSync/radioBase/
+                // localBase) so each channel (control/serial/audio/scope) tracks its own path
+                // timing independently. They used to be shadowed by same-named `static` locals
+                // here, which made every icomUdpBase instance in the process share one sync
+                // state (control-channel pings would stomp on the audio channel's, etc).
                 if (!haveSync) {
                     haveSync = true;
                     radioBase = radioNow;
@@ -139,20 +152,21 @@ void icomUdpBase::dataReceived(QByteArray r)
                 // Negative means it appears ahead (usually reorder/clock wobble).
                 pingLatenessMs = signedDeltaDay(predictedRadioNow, radioNow);
 
-                static bool baselineValid = false;
-                static int  baselineMs = 0;
                 constexpr int MaxBaselineClamp = 2000; // safety clamp
 
-                // Initialise / update baseline slowly (tracks pipeline delay but not spikes)
+                // Initialise / update baseline slowly (tracks pipeline delay but not spikes).
+                // Written into the pingBaselineMs member (also per-instance) so
+                // icomUdpAudio::dataReceived()'s excess-latency/drop check actually sees the
+                // learned steady-state delay instead of the fixed 0 it silently read before.
                 if (!baselineValid) {
-                    baselineMs = pingLatenessMs;
+                    pingBaselineMs = pingLatenessMs;
                     baselineValid = true;
                 } else {
                     // Only learn baseline when we're not in a big spike
-                    int dev = pingLatenessMs - baselineMs;
+                    int dev = pingLatenessMs - pingBaselineMs;
                     if (std::abs(dev) < 200) { // don't "learn" huge spikes into baseline
-                        baselineMs = (baselineMs * 31 + pingLatenessMs) / 32;
-                        baselineMs = qBound(0, baselineMs, MaxBaselineClamp);
+                        pingBaselineMs = (pingBaselineMs * 31 + pingLatenessMs) / 32;
+                        pingBaselineMs = qBound(0, pingBaselineMs, MaxBaselineClamp);
                     }
                 }
 
@@ -202,7 +216,14 @@ void icomUdpBase::dataReceived(QByteArray r)
     // This is a variable length retransmit request!
     if (in->type == 0x01 && in->len != 0x10)
     {
-
+        // txSeqBuf is also inserted/erased under txBufferMutex from
+        // sendTrackedPacket() (possibly a different thread). This loop used
+        // to read it with no lock at all -- a data race that could corrupt
+        // the map or read a freed SEQBUFENTRY out from under a concurrent
+        // insert/erase, i.e. genuine data corruption unrelated to the radio
+        // link. sendControl(false, ...) below only touches udpMutex, so
+        // holding txBufferMutex around the whole loop can't deadlock.
+        txBufferMutex.lock();
         for (quint16 i = 0x10; i < r.length(); i = i + 2)
         {
             quint16 seq = (quint8)r[i] | (quint8)r[i + 1] << 8;
@@ -212,21 +233,31 @@ void icomUdpBase::dataReceived(QByteArray r)
                     << QString("0x%1").arg(seq, 0, 16) <<
                     "not found, have " << QString("0x%1").arg(txSeqBuf.firstKey(), 0, 16) <<
                     "to" << QString("0x%1").arg(txSeqBuf.lastKey(), 0, 16);
-                // Just send idle packet.
+                // Just send idle packet. Already gone from the buffer, so
+                // there's no retransmitCount to gate on -- each occurrence
+                // is a genuinely failed resend, count it.
                 sendControl(false, 0, seq);
+                packetsLost++;
+                congestion = static_cast<double>(packetsSent) / packetsLost * 100;
             }
             else {
                 // Found matching entry?
                 // Send "untracked" as it has already been sent once.
                 qDebug(logUdp()) << this->metaObject()->className() << ": Sending (multiple packet) retransmit of " << QString("0x%1").arg(match->seqNum, 0, 16);
+                // Count each distinct packet as lost only once, not on every
+                // repeat request for the same packet (see the single-packet
+                // path above for why -- avoids lost > sent in the display).
+                if (match->retransmitCount == 0) {
+                    packetsLost++;
+                    congestion = static_cast<double>(packetsSent) / packetsLost * 100;
+                }
                 match->retransmitCount++;
                 udpMutex.lock();
                 udp->writeDatagram(match->data, radioIP, port);
                 udpMutex.unlock();
-                packetsLost++;
-                congestion = static_cast<double>(packetsSent) / packetsLost * 100;
             }
         }
+        txBufferMutex.unlock();
     }
     else if (in->len != PING_SIZE && in->type == 0x00 && in->seq != 0x00)
     {

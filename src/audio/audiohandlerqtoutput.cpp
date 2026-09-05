@@ -44,6 +44,12 @@ bool audioHandlerQtOutput::openDevice() noexcept
         audioDevice->write(silence.constData(), silence.size());
     }
 
+    // Fresh session: forget any sequence-ordering state from a previous connection.
+    haveSeq = false;
+    nextSeq = 0;
+    reorderBuf.clear();
+    pendingAudio.clear();
+
     connect(audioOutput, SIGNAL(destroyed()), audioDevice, SLOT(deleteLater()), Qt::UniqueConnection);
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     qInfo(logAudio()) << "Connected to Qt audio output device" << deviceInfo.deviceName();
@@ -83,7 +89,45 @@ void audioHandlerQtOutput::incomingAudio(audioPacket packet)
 void audioHandlerQtOutput::onConverted(audioPacket pkt)
 {
     if (!audioOutput || !audioDevice || pkt.data.isEmpty()) return;
-    writeToOutputDevice(pkt.data, pkt.seq, pkt.amplitudePeak, pkt.amplitudeRMS);
+    const int nowToPktMs = pkt.time.msecsTo(QTime::currentTime());
+    if (nowToPktMs > setupData.latency * 1.5) {
+        noteAudioDrop();
+        return; // late frame ( more than latency * 1.5), drop
+    }
+
+    // Play in sequence order rather than network-arrival order. A packet
+    // that arrives late (reordered, or recovered via retransmit after the
+    // radio noticed a gap) must not get spliced in ahead of audio that
+    // already played -- that's heard as a burst of static, worst on
+    // networks with real jitter/reordering like cellular.
+    if (!haveSeq) {
+        haveSeq = true;
+        nextSeq = pkt.seq;
+    } else if (pkt.seq < nextSeq) {
+        noteAudioDrop();
+        return; // stale duplicate / late-retransmit of audio already played
+    }
+
+    reorderBuf.insert(pkt.seq, pkt);
+
+    while (!reorderBuf.isEmpty()) {
+        auto it = reorderBuf.begin();
+        if (it.key() == nextSeq) {
+            writeToOutputDevice(it.value().data, it.value().seq, it.value().amplitudePeak, it.value().amplitudeRMS);
+            nextSeq = it.key() + 1;
+            reorderBuf.erase(it);
+            continue;
+        }
+        // Still waiting on nextSeq. Give up on it (genuine loss, not just
+        // reordering) once we've waited too long or are holding too much.
+        const int waitedMs = it.value().time.msecsTo(QTime::currentTime());
+        if (waitedMs > REORDER_WAIT_MS || reorderBuf.size() > REORDER_MAX_PACKETS) {
+            noteAudioDrop(); // gave up waiting for nextSeq: a genuine gap
+            nextSeq = it.key();
+            continue;
+        }
+        break;
+    }
 }
 
 void audioHandlerQtOutput::writeToOutputDevice(QByteArray data, quint32 seq, float ampPeak, float ampRms)

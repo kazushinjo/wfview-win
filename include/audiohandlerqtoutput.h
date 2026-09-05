@@ -34,6 +34,19 @@ private:
     QByteArray        pendingAudio;
     QTimer*           drainTimer {nullptr};
 
+    // Reorder-by-sequence gate: converted packets arrive from the network in
+    // whatever order UDP delivered/retransmitted them, not necessarily
+    // temporal order. Writing them straight to the device in arrival order
+    // splices late/reordered audio into the wrong spot in the stream, which
+    // is heard as bursts of static/crackle (worst on cellular). Hold each
+    // packet briefly until its predecessor shows up, or give up and skip
+    // ahead if it never does (a genuine loss, not just reordering).
+    bool             haveSeq {false};
+    quint32          nextSeq {0};
+    QMap<quint32, audioPacket> reorderBuf;
+    static constexpr int REORDER_WAIT_MS = 60;
+    static constexpr int REORDER_MAX_PACKETS = 10;
+
 private slots:
     void onConverted(audioPacket pkt);
 
