@@ -16,10 +16,14 @@ public:
     explicit ByteRing(size_t cap = 1u<<18) : cap_(cap) {}
     size_t push(const char* p, size_t n) {
         QMutexLocker l(&m_);
-        const size_t free = cap_ - static_cast<size_t>(buf_.size());
-        const size_t take = qMin(n, free);
-        buf_.append(p, static_cast<int>(take));
-        return take;
+        if (n >= cap_) {
+            buf_ = QByteArray(p + (n - cap_), static_cast<int>(cap_));
+            return cap_;
+        }
+        const size_t needed = n - qMin(n, cap_ - static_cast<size_t>(buf_.size()));
+        if (needed) buf_.remove(0, static_cast<int>(needed));
+        buf_.append(p, static_cast<int>(n));
+        return n;
     }
     size_t pop(char* p, size_t n) {
         QMutexLocker l(&m_);
