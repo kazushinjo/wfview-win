@@ -16,7 +16,7 @@ jobs:
   #  Windows 32bit Qt5 Build
   # ═══════════════════════════════════════════════════════════════════
   build-windows-x86:
-    runs-on: windows-latest
+    runs-on: windows-2022
     outputs:
       version_string: ${{ steps.version_info.outputs.version_string }}
       has_tag: ${{ steps.version_info.outputs.has_tag }}
@@ -253,7 +253,7 @@ jobs:
   #  Windows 64bit Qt6 Build
   # ═══════════════════════════════════════════════════════════════════
   build-windows-x64:
-    runs-on: windows-latest
+    runs-on: windows-2022
     outputs:
       version_string: ${{ steps.version_info.outputs.version_string }}
       has_tag: ${{ steps.version_info.outputs.has_tag }}
@@ -596,7 +596,8 @@ jobs:
           qmake qcustomplot-sharedlib.pro \
             CONFIG+=release \
             QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" \
-            QMAKE_MACOSX_DEPLOYMENT_TARGET=12.0
+            QMAKE_MACOSX_DEPLOYMENT_TARGET=12.0 \
+            QMAKE_CXXFLAGS+=-Wno-error=implicit-function-declaration
 
           make -j$(sysctl -n hw.logicalcpu)
           cp ../../qcustomplot.h .
@@ -624,6 +625,7 @@ jobs:
             CONFIG+=sdk_no_version_check \
             QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" \
             QMAKE_MACOSX_DEPLOYMENT_TARGET=12.0 \
+            QMAKE_CXXFLAGS+=-Wno-error=implicit-function-declaration \
             INCLUDEPATH+="$SYSROOT/include" \
             INCLUDEPATH+="../qcustomplot/qcustomplot-sharedlib/build" \
             LIBS+="-L$SYSROOT/lib" \
