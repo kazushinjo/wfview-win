@@ -87,22 +87,8 @@ void audioHandlerPaOutput::incomingAudio(audioPacket packet)
 void audioHandlerPaOutput::onConverted(audioPacket pkt)
 {
     if (pkt.data.isEmpty() || !outRB) return;
-    const int age = pkt.time.msecsTo(QTime::currentTime());
-    if (age > setupData.latency * 1.5)
-        return;
-
-    // Recover from underrun: re-prime the ring buffer with silence so the
-    // callback has a cushion before real audio resumes, preventing click cascades.
-    if (isUnderrun.load(std::memory_order_relaxed)) {
-        if (!lastRecovery.isValid() || lastRecovery.elapsed() > kUnderrunCooldownMs) {
-            prefillRingBuffer();
-            lastRecovery.restart();
-            qDebug(logAudio()) << "PortAudio output underrun recovery: re-primed ring buffer";
-        }
-        isUnderrun.store(false, std::memory_order_relaxed);
-    }
-
     outRB->push(pkt.data.constData(), size_t(pkt.data.size()));
+    isUnderrun.store(false, std::memory_order_relaxed);
     lastReceived.restart(); amplitude.store(pkt.amplitudePeak);
     emit haveLevels(amplitudePeak(), quint16(pkt.amplitudeRMS*255.0f), setupData.latency, currentLatency.load(), isUnderrun.load(), isOverrun.load());
 }
