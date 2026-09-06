@@ -1204,7 +1204,11 @@ void wfmain::setupMainUI()
     rigStatus = new QLabel(this);
     ui->statusBar->addPermanentWidget(rigStatus);
     rigStatus->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
-    rigStatus->setFixedWidth(220);
+    // Wide enough for the longest status.message from icomUdpHandler, e.g.
+    // "(no tx) rx latency: 999 ms / rtt: 999 ms / loss: 999/999 / audio
+    // drops: 999" (~75 monospace chars) -- 220px predates the rtt/loss/audio
+    // drops fields and was clipping them off the right edge.
+    rigStatus->setFixedWidth(480);
     ui->statusBar->showMessage("Connecting to rig...", 1000);
 
     pttLed = new QLedLabel(this);
