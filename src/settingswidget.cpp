@@ -14,6 +14,14 @@
 #include <QPointer>
 #include <QTimer>
 
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <imm.h>
+#endif
+
 #define setchk(a,b) quietlyUpdateCheckbox(a,b)
 
 // QValidator does not intercept IME-committed text (e.g. Japanese full-width
@@ -43,11 +51,18 @@ static bool enforceHalfWidth(QLineEdit *edit)
 }
 
 
-// Keeps the input method (e.g. the Japanese IME) switched off on a line edit
-// so it always takes half-width alphanumerics. Disabling WA_InputMethodEnabled
-// once is not enough: QLineEdit turns the input method back on whenever a
-// PasswordEchoOnEdit field gains focus, so switch it off again after every
-// focus-in (deferred, so it runs after QLineEdit's own handler).
+// Makes a line edit take half-width alphanumerics: whenever it gains focus,
+// switch the Windows IME off (plain keyboard input, like pressing the
+// 半角/全角 key). Simply disabling WA_InputMethodEnabled did not work: QLineEdit
+// re-enables it on focus for PasswordEchoOnEdit fields, and the IME mode was
+// left as it was. Anything full-width still typed is stripped afterwards by
+// enforceHalfWidth().
+// Password fields (PasswordEchoOnEdit) are switched to a plain Normal field
+// while focused, so Windows gives them the same keyboard as the user ID field
+// rather than a password-type one. Like PasswordEchoOnEdit (which erases the
+// old content once typing starts), the stored password is never shown: the
+// field is emptied on focus and the old password is put back if nothing was
+// typed, then the field returns to masked display once focus leaves.
 class imeBlocker : public QObject
 {
 public:
@@ -56,22 +71,62 @@ public:
     static void apply(QLineEdit *edit)
     {
         edit->setInputMethodHints(edit->inputMethodHints() | Qt::ImhLatinOnly);
-        edit->setAttribute(Qt::WA_InputMethodEnabled, false);
         edit->installEventFilter(new imeBlocker(edit));
     }
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override
     {
+        QLineEdit *edit = qobject_cast<QLineEdit *>(obj);
+        if (edit && event->type() == QEvent::FocusIn
+            && edit->echoMode() == QLineEdit::PasswordEchoOnEdit)
+        {
+            edit->setProperty("wfviewMaskedWhenIdle", true);
+            edit->setProperty("wfviewSavedPassword", edit->text());
+            const bool blocked = edit->blockSignals(true);
+            edit->setEchoMode(QLineEdit::Normal);
+            edit->clear();
+            edit->blockSignals(blocked);
+        }
+        else if (edit && event->type() == QEvent::FocusOut
+                 && edit->property("wfviewMaskedWhenIdle").toBool()
+                 && edit->echoMode() == QLineEdit::Normal)
+        {
+            const bool blocked = edit->blockSignals(true);
+            if (!edit->isModified() && edit->text().isEmpty())
+                edit->setText(edit->property("wfviewSavedPassword").toString());
+            edit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
+            edit->blockSignals(blocked);
+            edit->setProperty("wfviewSavedPassword", QVariant());
+        }
+
         if (event->type() == QEvent::FocusIn)
         {
             QPointer<QWidget> w = qobject_cast<QWidget *>(obj);
+            // Deferred so it runs after Qt has finished its own focus/IME
+            // handling for the field.
             QTimer::singleShot(0, this, [w]() {
-                if (w)
-                    w->setAttribute(Qt::WA_InputMethodEnabled, false);
+                if (w && w->hasFocus())
+                    switchImeOff(w);
             });
         }
         return QObject::eventFilter(obj, event);
+    }
+
+private:
+    static void switchImeOff(QWidget *w)
+    {
+#ifdef Q_OS_WIN
+        HWND hwnd = reinterpret_cast<HWND>(w->window()->winId());
+        HIMC himc = ImmGetContext(hwnd);
+        if (himc)
+        {
+            ImmSetOpenStatus(himc, FALSE);
+            ImmReleaseContext(hwnd, himc);
+        }
+#else
+        Q_UNUSED(w);
+#endif
     }
 };
 

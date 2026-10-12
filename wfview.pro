@@ -364,7 +364,7 @@ contains(DEFINES,USB_CONTROLLER){
 # iOS links its own static libopus.a (see ios block above).
 !win32:!ios:LIBS += -L./ -lopus
 
-win32:LIBS += -lopus -lole32 -luser32
+win32:LIBS += -lopus -lole32 -luser32 -limm32
 
 #contains(DEFINES,FTDI_SUPPORT){
 #  !win32:LIBS += -lft4222
