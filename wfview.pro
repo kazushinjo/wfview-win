@@ -31,7 +31,7 @@ TEMPLATE = app
 #   qmake ... VERSION="1.2.3"
 # If set, it replaces the default WFVIEW_VERSION.
 isEmpty(VERSION) {
-    DEFINES += WFVIEW_VERSION=\\\"2.25.1\\\"
+    DEFINES += WFVIEW_VERSION=\\\"2.26\\\"
 } else {
     DEFINES += WFVIEW_VERSION=\\\"$$VERSION\\\"
 }
@@ -565,6 +565,7 @@ HEADERS  += \
     include/clickablelabel.h \
     include/qledlabel.h \
     include/receiverwidget.h \
+    include/buttonstyle.h \
     include/repeaterattributes.h \
     include/repeatersetup.h \
     include/rigcommander.h \

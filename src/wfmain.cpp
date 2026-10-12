@@ -7,6 +7,7 @@
 
 #include <QLabel>
 #include <QPushButton>
+#include "buttonstyle.h"
 #include <QSlider>
 #include <QVBoxLayout>
 #include <QDialog>
@@ -133,9 +134,8 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     fineButton->setCheckable(true);
     fineButton->setFixedWidth(80);
     fineButton->setToolTip(QStringLiteral("周波数ダイアルを1 Hzステップに切り替えます"));
-    fineButton->setStyleSheet(QStringLiteral(
-        "QPushButton { border-radius: 8px; }"
-        "QPushButton:checked { background-color: #f6d6a8; color: #202124; }"));
+    fineButton->setStyleSheet(
+        wfview_buttonStyleSheet(QStringLiteral("border-radius: 8px;")));
     fineLockLayout->addWidget(fineButton);
 
     iosLockButton = new QPushButton(QStringLiteral("Lock"), ui->mainGroup);
@@ -143,9 +143,8 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     iosLockButton->setCheckable(true);
     iosLockButton->setFixedWidth(80);
     iosLockButton->setToolTip(QStringLiteral("周波数をロックします"));
-    iosLockButton->setStyleSheet(QStringLiteral(
-        "QPushButton { border-radius: 8px; }"
-        "QPushButton:checked { background-color: #f6d6a8; color: #202124; }"));
+    iosLockButton->setStyleSheet(
+        wfview_buttonStyleSheet(QStringLiteral("border-radius: 8px;")));
     fineLockLayout->addWidget(iosLockButton);
 
     ritInlineLayout->addWidget(ui->ritTuneDial);
@@ -184,9 +183,12 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     for (QPushButton *button : roundedControlButtons)
         button->setStyleSheet(button->styleSheet()
                               + QStringLiteral("QPushButton { border-radius: 10px; }"));
-    ui->transmitBtn->setStyleSheet(QStringLiteral(
-        "QPushButton { background-color: #c8e6c9; color: #202124; "
-        "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
+    // Taller operating buttons (TUNE, CW, repeater, memory, power on/off).
+    // This also shrinks the spectrum/waterfall above them.
+    for (QPushButton *button : roundedControlButtons)
+        if (button != ui->transmitBtn && button != ui->splitBtn)
+            button->setMinimumHeight(40);
+    ui->transmitBtn->setStyleSheet(wfview_transmitButtonStyleSheet(false));
 
     // Accessibility: the operating buttons are NoFocus in the .ui so the tuning
     // controls keep keyboard focus. That leaves keyboard-only and VoiceOver
@@ -204,6 +206,14 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     };
     for (QPushButton* btn : tabFocusButtons)
         btn->setFocusPolicy(Qt::StrongFocus);
+
+    // Make the bottom row of buttons (Settings ... Exit) a little taller.
+    for (int i = 0; i < ui->horizontalLayout_16->count(); i++)
+    {
+        QWidget *w = ui->horizontalLayout_16->itemAt(i)->widget();
+        if (QPushButton *btn = qobject_cast<QPushButton *>(w))
+            btn->setMinimumHeight(40);
+    }
 
     // Require a double-click on the exit button so it can't be triggered by
     // an accidental single click; see eventFilter().
@@ -3182,12 +3192,9 @@ void wfmain::extChangedColPref(prefColItem i)
     // Any updated scope colors will cause the scope colorPreset to be changed.
     case col_buttonOff:
     case col_buttonOn:
-        ui->scopeDualBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
-                                        .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-        ui->dualWatchBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
-                                        .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-        ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;border-radius: 10px;} QPushButton:checked {background-color: %1;border: 1px solid;border-radius: 10px;}")
-                                        .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
+        ui->scopeDualBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("")));
+        ui->dualWatchBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("")));
+        ui->splitBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("border-radius: 10px;")));
         //    ui->mainSubTrackingBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
         //                                    .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
     case col_grid:
@@ -4652,9 +4659,9 @@ static QString wfview_iosTouchStyleSheet()
         "QPushButton#tuneNowBtn, QPushButton#cwButton,"
         "QPushButton#rptSetupBtn, QPushButton#splitBtn, QPushButton#memoriesBtn"
         " { border-radius: 10px; padding: 4px 10px; }"
-        // Transmit button: pale-green background at all times (crimson text is
-        // applied dynamically while transmitting).
-        "QPushButton#transmitBtn { background-color: #c8e6c9; color: #202124; font-weight: bold; border-radius: 10px; padding: 4px 10px; }"
+        // Transmit button: bold text (crimson text is applied dynamically
+        // while transmitting).
+        "QPushButton#transmitBtn { font-weight: bold; border-radius: 10px; padding: 4px 10px; }"
     );
 }
 #endif
@@ -4686,15 +4693,16 @@ void wfmain::setAppTheme(bool isCustom)
 #ifdef WFVIEW_IOS
                 sheet += wfview_iosTouchStyleSheet();
 #endif
+                sheet += wfview_buttonStyleSheet();
                 qApp->setStyleSheet(sheet);
             }
         }
     } else {
 #ifdef WFVIEW_IOS
         // Even with the "system" theme, keep touch-friendly sizing on iOS.
-        qApp->setStyleSheet(wfview_iosTouchStyleSheet());
+        qApp->setStyleSheet(wfview_iosTouchStyleSheet() + wfview_buttonStyleSheet());
 #else
-        qApp->setStyleSheet("");
+        qApp->setStyleSheet(wfview_buttonStyleSheet());
 #endif
     }
 }
@@ -4930,14 +4938,10 @@ void wfmain::changeTxBtn()
     if(amTransmitting)
     {
         ui->transmitBtn->setText("送信中");
-        ui->transmitBtn->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: #c8e6c9; color: crimson; "
-            "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
+        ui->transmitBtn->setStyleSheet(wfview_transmitButtonStyleSheet(true));
     } else {
         ui->transmitBtn->setText("送信");
-        ui->transmitBtn->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: #c8e6c9; color: #202124; "
-            "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
+        ui->transmitBtn->setStyleSheet(wfview_transmitButtonStyleSheet(false));
     }
 }
 
@@ -6459,12 +6463,9 @@ void wfmain::useColorPreset(colorPrefsType *cp)
     ui->meter2Widget->setColors(cp->meterLevel, cp->meterPeakScale, cp->meterPeakLevel, cp->meterAverage, cp->meterLowerLine, cp->meterLowText);
     ui->meter3Widget->setColors(cp->meterLevel, cp->meterPeakScale, cp->meterPeakLevel, cp->meterAverage, cp->meterLowerLine, cp->meterLowText);
 
-    ui->scopeDualBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
-                                    .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    ui->dualWatchBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
-                                    .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;border-radius: 10px;} QPushButton:checked {background-color: %1;border: 1px solid;border-radius: 10px;}")
-                                    .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
+    ui->scopeDualBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("")));
+    ui->dualWatchBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("")));
+    ui->splitBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("border-radius: 10px;")));
     //ui->mainSubTrackingBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
     //                                .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
 

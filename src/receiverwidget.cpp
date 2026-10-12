@@ -1,4 +1,5 @@
 #include "receiverwidget.h"
+#include "buttonstyle.h"
 #include "logcategories.h"
 #include "rigidentities.h"
 
@@ -311,6 +312,9 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     splitter->addWidget(spectrum);
     splitter->addWidget(waterfall);
     splitter->setHandleWidth(5);
+    // Give the waterfall less vertical space than the spectrum (3:2).
+    splitter->setStretchFactor(0, 3);
+    splitter->setStretchFactor(1, 2);
 
     spectrum->axisRect()->setMargins(QMargins(30,0,0,0));
     waterfall->axisRect()->setMargins(QMargins(30,0,0,0));
@@ -960,16 +964,11 @@ void receiverWidget::colorPreset(colorPrefsType *cp)
 
     waterfall->setBackground(cp->wfBackground);
 
-    holdButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
-                                  .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    splitButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
-                                   .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    satelliteButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
-                                   .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    vfoSelectButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
-                                   .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    vfoMemoryButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
-                                   .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
+    holdButton->setStyleSheet(wfview_buttonStyleSheet(QString()));
+    splitButton->setStyleSheet(wfview_buttonStyleSheet(QString()));
+    satelliteButton->setStyleSheet(wfview_buttonStyleSheet(QString()));
+    vfoSelectButton->setStyleSheet(wfview_buttonStyleSheet(QString()));
+    vfoMemoryButton->setStyleSheet(wfview_buttonStyleSheet(QString()));
 
 }
 
