@@ -129,7 +129,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     ritInlineLayout->setContentsMargins(0, 0, 0, 0);
     ritInlineLayout->setSpacing(4);
 
-    QPushButton *fineButton = new QPushButton(QStringLiteral("Fine"), ui->mainGroup);
+    QPushButton *fineButton = new QPushButton(QStringLiteral("微調整"), ui->mainGroup);
     fineButton->setObjectName(QStringLiteral("fineTuningButton"));
     fineButton->setCheckable(true);
     fineButton->setFixedWidth(80);
@@ -138,7 +138,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
         wfview_buttonStyleSheet(QStringLiteral("border-radius: 8px;")));
     fineLockLayout->addWidget(fineButton);
 
-    iosLockButton = new QPushButton(QStringLiteral("Lock"), ui->mainGroup);
+    iosLockButton = new QPushButton(QStringLiteral("ロック"), ui->mainGroup);
     iosLockButton->setObjectName(QStringLiteral("frequencyLockButton"));
     iosLockButton->setCheckable(true);
     iosLockButton->setFixedWidth(80);
@@ -768,7 +768,7 @@ void wfmain::openRig()
     // TODO: How do we know if the setting was loaded?
 
     emit connectionStatus(true); // Signal any other parts that need to know if we are connecting/connected.
-    ui->connectBtn->setText("Cancel connection"); // We are attempting to connect
+    ui->connectBtn->setText("接続を中止"); // We are attempting to connect
     connStatus = connConnecting;
     isRadioAdmin = true; // Set user to admin, will be reset if not.
     // M0VSE: This could be in a better place maybe?
@@ -6643,7 +6643,7 @@ void wfmain::connectionHandler(bool connect)
     if (connect) {
         openRig();
     } else {
-        ui->connectBtn->setText("Connect to Radio");
+        ui->connectBtn->setText("無線機に接続");
         enableRigCtl(false);
         removeRig();
         // Stop time sync timer if running.
@@ -7965,7 +7965,7 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
 
         ui->memoriesBtn->setEnabled(rigCaps->commands.contains(funcMemoryContents));
 
-        ui->connectBtn->setText("Disconnect from Radio"); // We must be connected now.
+        ui->connectBtn->setText("無線機から切断"); // We must be connected now.
         connStatus = connConnected;
 
         // Now we know that we are connected, enable rigctld

@@ -249,7 +249,7 @@
                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Turns the radio on&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
                <property name="text">
-                <string>Power On</string>
+                <string>電源ON</string>
                </property>
               </widget>
              </item>
@@ -262,7 +262,7 @@
                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Turns the radio off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
                <property name="text">
-                <string>Power Off</string>
+                <string>電源OFF</string>
                </property>
               </widget>
              </item>
@@ -817,7 +817,7 @@
               <string>Start the automatic antenna tuner cycle</string>
              </property>
              <property name="text">
-              <string>TUNE</string>
+              <string>チューン</string>
              </property>
             </widget>
            </item>
@@ -830,7 +830,7 @@
               <string>Press to bring up the CW Sender</string>
              </property>
              <property name="text">
-              <string>CW</string>
+              <string>CW送信</string>
              </property>
             </widget>
            </item>
@@ -843,7 +843,7 @@
               <string>Show the repeater tone and offset window</string>
              </property>
              <property name="text">
-              <string>Rpt/Split</string>
+              <string>レピータ／スプリット</string>
              </property>
             </widget>
            </item>
@@ -853,7 +853,7 @@
               <enum>Qt::NoFocus</enum>
              </property>
              <property name="text">
-              <string>Memories</string>
+              <string>メモリーモード</string>
              </property>
             </widget>
            </item>
@@ -910,7 +910,7 @@
                      <enum>Qt::NoFocus</enum>
                     </property>
                     <property name="text">
-                     <string>Dual Watch</string>
+                     <string>デュアルワッチ</string>
                     </property>
                     <property name="checkable">
                      <bool>true</bool>
@@ -935,7 +935,7 @@
                      <enum>Qt::NoFocus</enum>
                     </property>
                     <property name="text">
-                     <string>Dual Scope</string>
+                     <string>デュアルスコープ</string>
                     </property>
                     <property name="checkable">
                      <bool>true</bool>
@@ -954,7 +954,7 @@
                      <enum>Qt::NoFocus</enum>
                     </property>
                     <property name="text">
-                     <string>Main/Sub</string>
+                     <string>メイン/サブ</string>
                     </property>
                     <property name="checkable">
                      <bool>false</bool>
@@ -967,7 +967,7 @@
                      <enum>Qt::NoFocus</enum>
                     </property>
                     <property name="text">
-                     <string>Split</string>
+                     <string>スプリット</string>
                     </property>
                     <property name="checkable">
                      <bool>true</bool>
@@ -980,7 +980,7 @@
                      <enum>Qt::NoFocus</enum>
                     </property>
                     <property name="text">
-                     <string>Swap</string>
+                     <string>入れ替え</string>
                     </property>
                    </widget>
                   </item>
@@ -990,7 +990,7 @@
                      <enum>Qt::NoFocus</enum>
                     </property>
                     <property name="text">
-                     <string>Main=Sub</string>
+                     <string>メイン=サブ</string>
                     </property>
                    </widget>
                   </item>
@@ -1239,7 +1239,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Settings</string>
+          <string>設定</string>
          </property>
         </widget>
        </item>
@@ -1269,7 +1269,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Log</string>
+          <string>ログ表示</string>
          </property>
         </widget>
        </item>
@@ -1279,7 +1279,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Bands</string>
+          <string>バンド選択</string>
          </property>
         </widget>
        </item>
@@ -1299,7 +1299,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Rig Edit</string>
+          <string>リグ編集</string>
          </property>
         </widget>
        </item>
@@ -1348,7 +1348,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Connect</string>
+          <string>無線機に接続</string>
          </property>
         </widget>
        </item>
