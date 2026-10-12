@@ -11,6 +11,8 @@
 #include <QPushButton>
 #include <QRegularExpressionValidator>
 #include <QScreen>
+#include <QPointer>
+#include <QTimer>
 
 #define setchk(a,b) quietlyUpdateCheckbox(a,b)
 
@@ -40,6 +42,38 @@ static bool enforceHalfWidth(QLineEdit *edit)
     return true;
 }
 
+
+// Keeps the input method (e.g. the Japanese IME) switched off on a line edit
+// so it always takes half-width alphanumerics. Disabling WA_InputMethodEnabled
+// once is not enough: QLineEdit turns the input method back on whenever a
+// PasswordEchoOnEdit field gains focus, so switch it off again after every
+// focus-in (deferred, so it runs after QLineEdit's own handler).
+class imeBlocker : public QObject
+{
+public:
+    using QObject::QObject;
+
+    static void apply(QLineEdit *edit)
+    {
+        edit->setInputMethodHints(edit->inputMethodHints() | Qt::ImhLatinOnly);
+        edit->setAttribute(Qt::WA_InputMethodEnabled, false);
+        edit->installEventFilter(new imeBlocker(edit));
+    }
+
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override
+    {
+        if (event->type() == QEvent::FocusIn)
+        {
+            QPointer<QWidget> w = qobject_cast<QWidget *>(obj);
+            QTimer::singleShot(0, this, [w]() {
+                if (w)
+                    w->setAttribute(Qt::WA_InputMethodEnabled, false);
+            });
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
 
 settingswidget::settingswidget(QWidget *parent) :
     QWidget(parent),
@@ -312,11 +346,11 @@ void settingswidget::populateComboBoxes()
     ui->clusterPasswordLineEdit->setInputMethodHints(Qt::ImhLatinOnly | Qt::ImhSensitiveData);
     // ImhLatinOnly is only a hint that IMEs may ignore; actually disable the
     // input method for these fields so IME composition cannot engage at all.
-    ui->ipAddressTxt->setAttribute(Qt::WA_InputMethodEnabled, false);
-    ui->usernameTxt->setAttribute(Qt::WA_InputMethodEnabled, false);
-    ui->passwordTxt->setAttribute(Qt::WA_InputMethodEnabled, false);
-    ui->clusterUsernameLineEdit->setAttribute(Qt::WA_InputMethodEnabled, false);
-    ui->clusterPasswordLineEdit->setAttribute(Qt::WA_InputMethodEnabled, false);
+    imeBlocker::apply(ui->ipAddressTxt);
+    imeBlocker::apply(ui->usernameTxt);
+    imeBlocker::apply(ui->passwordTxt);
+    imeBlocker::apply(ui->clusterUsernameLineEdit);
+    imeBlocker::apply(ui->clusterPasswordLineEdit);
 
     ui->modInputData2ComboText->setVisible(false);
     ui->modInputData2Combo->setVisible(false);
@@ -1658,6 +1692,7 @@ void settingswidget::serverAddUserLine(int row, const QString &user, const QStri
     username->setProperty("row", row);
     username->setProperty("col", (int)0);
     username->setText(user);
+    imeBlocker::apply(username);
     connect(username, SIGNAL(editingFinished()), this, SLOT(onServerUserFieldChanged()));
     ui->serverUsersTable->setCellWidget(row, 0, username);
 
@@ -1666,6 +1701,7 @@ void settingswidget::serverAddUserLine(int row, const QString &user, const QStri
     password->setProperty("col", (int)1);
     password->setEchoMode(QLineEdit::PasswordEchoOnEdit);
     password->setText(pass);
+    imeBlocker::apply(password);
     connect(password, SIGNAL(editingFinished()), this, SLOT(onServerUserFieldChanged()));
     ui->serverUsersTable->setCellWidget(row, 1, password);
 
