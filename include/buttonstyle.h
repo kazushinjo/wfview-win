@@ -11,13 +11,15 @@
 #define WFVIEW_BTN_BG_CHECKED  "#4fc3f7"
 #define WFVIEW_BTN_BORDER      "#4fa3c7"
 #define WFVIEW_BTN_TEXT        "#202124"
+#define WFVIEW_BTN_FONT_SIZE   "11pt"
 
 static inline QString wfview_buttonStyleSheet()
 {
     return QStringLiteral(
         "QPushButton, QToolButton {"
         " background-color: " WFVIEW_BTN_BG "; color: " WFVIEW_BTN_TEXT ";"
-        " border: 1px solid " WFVIEW_BTN_BORDER "; border-radius: 4px; padding: 3px 6px; }"
+        " border: 1px solid " WFVIEW_BTN_BORDER "; border-radius: 4px; padding: 3px 6px;"
+        " font-size: " WFVIEW_BTN_FONT_SIZE "; }"
         "QPushButton:hover, QToolButton:hover { background-color: " WFVIEW_BTN_BG_HOVER "; }"
         "QPushButton:pressed, QToolButton:pressed,"
         "QPushButton:checked, QToolButton:checked {"
@@ -31,7 +33,7 @@ static inline QString wfview_buttonStyleSheet(const QString &extra)
 {
     return QStringLiteral(
         "QPushButton { background-color: " WFVIEW_BTN_BG "; color: " WFVIEW_BTN_TEXT ";"
-        " border: 1px solid " WFVIEW_BTN_BORDER "; %1 }"
+        " border: 1px solid " WFVIEW_BTN_BORDER "; font-size: " WFVIEW_BTN_FONT_SIZE "; %1 }"
         "QPushButton:hover { background-color: " WFVIEW_BTN_BG_HOVER "; }"
         "QPushButton:pressed, QPushButton:checked { background-color: " WFVIEW_BTN_BG_CHECKED "; }")
         .arg(extra);
@@ -42,7 +44,7 @@ static inline QString wfview_transmitButtonStyleSheet(bool transmitting)
 {
     return QStringLiteral(
         "QPushButton { background-color: #29b6f6; color: %1; border: 1px solid #0288d1;"
-        " font-weight: bold; border-radius: 10px; padding: 4px 10px; }"
+        " font-size: " WFVIEW_BTN_FONT_SIZE "; font-weight: bold; border-radius: 10px; padding: 4px 10px; }"
         "QPushButton:hover { background-color: #03a9f4; }"
         "QPushButton:pressed { background-color: #0288d1; }")
         .arg(transmitting ? QStringLiteral("crimson") : QStringLiteral(WFVIEW_BTN_TEXT));
