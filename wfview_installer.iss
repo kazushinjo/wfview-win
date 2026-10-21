@@ -1,5 +1,8 @@
 #define MyAppName "wfview"
-#define MyAppVersion "2.24"
+; ISCC /DMyAppVersion=x.y overrides this
+#ifndef MyAppVersion
+  #define MyAppVersion "2.30"
+#endif
 #define MyAppPublisher "wf-group"
 #define MyAppURL "https://wfview.org"
 #define MyAppExeName "wfview-win.exe"
