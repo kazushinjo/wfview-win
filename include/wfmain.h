@@ -422,7 +422,7 @@ private slots:
 
     void on_tuneNowBtn_clicked();
     void on_tuneEnableChk_clicked(bool checked);
-    bool doExit();
+    bool doExit(bool confirmExit = true);
     void on_helpBtn_clicked();
     void on_saveSettingsBtn_clicked();
     void debugBtn_clicked();
@@ -535,6 +535,7 @@ private:
     QPointer<class ft817Window> ft817Win;
 
     void showMainWindow();
+    void loadProfileForSettings();
     bool startupSettingsOnly = false;   // only the Settings window shown so far
     bool mainWindowShown = false;
 

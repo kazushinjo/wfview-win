@@ -1365,6 +1365,7 @@ void wfmain::connectSettingsWidget()
     connect(setupui, SIGNAL(connectButtonPressed()), this, SLOT(handleExtConnectBtn()));
     connect(setupui, SIGNAL(saveSettingsButtonPressed()), this, SLOT(on_saveSettingsBtn_clicked()));
     connect(setupui, SIGNAL(revertSettingsButtonPressed()), this, SLOT(handleRevertSettingsBtn()));
+    connect(setupui, &settingswidget::exitProgramButtonPressed, this, [this]() { doExit(); });
     connect(setupui, SIGNAL(connectionProfileSelected(QString)), this, SLOT(handleConnectionProfileSelected(QString)));
     connect(setupui, SIGNAL(connectionProfileSaveRequested(QString)), this, SLOT(handleConnectionProfileSaveRequested(QString)));
     connect(setupui, SIGNAL(connectionProfileDeleteRequested(QString)), this, SLOT(handleConnectionProfileDeleteRequested(QString)));
@@ -5284,7 +5285,7 @@ void wfmain::on_tuneEnableChk_clicked(bool checked)
     ATUCheckTimer.start(5000);
 }
 
-bool wfmain::doExit()
+bool wfmain::doExit(bool confirmExit)
 {
     bool ret=false;
     if (prefs.settingsChanged && prefs.confirmSettingsChanged)
@@ -5331,7 +5332,7 @@ bool wfmain::doExit()
     }
 
     // Are you sure?
-    if (!prefs.confirmExit) {
+    if (!prefs.confirmExit || !confirmExit) {
         QApplication::exit();
     } else {
         QCheckBox *cb = new QCheckBox(tr("Don't ask me again"));
@@ -5488,6 +5489,11 @@ void wfmain::on_connectBtn_clicked()
     else
     {
         connectionHandler(false);
+#ifndef WFVIEW_IOS
+        // Disconnecting returns to the Settings window, as at startup.
+        hide();
+        showStartupSettings();
+#endif
     }
 
     ui->connectBtn->clearFocus();
@@ -5534,6 +5540,17 @@ void wfmain::launchFt817Window()
         qInfo(logSystem()) << "FT-817/818 window closed, returning to the Settings window";
         showStartupSettings();
     });
+    connect(ft817Win, &ft817Window::exitRequested, this, [this]() {
+        // The user already confirmed in the FT-817/818 window, so no second
+        // "exit?" question; unsaved settings are still asked about.
+        if (doExit(false))
+        {
+            ft817Win->close();      // exit cancelled: back to the Settings window
+            return;
+        }
+        ft817Win->blockSignals(true);
+        ft817Win->close();
+    });
     if (!ft817Win->openPort())
     {
         QMessageBox::critical(this, tr("FT-817/818"),
@@ -5556,6 +5573,21 @@ void wfmain::showStartupSettings()
     startupSettingsOnly = true;
     setupui->installEventFilter(this);
     showAndRaiseWidget(setupui);
+}
+
+void wfmain::loadProfileForSettings()
+{
+    // The Settings window always starts from the selected connection profile,
+    // but not while a radio is in use: that would change settings under it.
+    if (connStatus != connDisconnected || (ft817Win && !startupSettingsOnly))
+        return;
+    if (currentConnectionProfile.isEmpty())
+        return;
+    // Loading a saved profile is not an unsaved change.
+    const bool changed = prefs.settingsChanged;
+    if (!loadConnectionProfile(currentConnectionProfile))
+        qWarning(logSystem()) << "Could not load connection profile" << currentConnectionProfile;
+    prefs.settingsChanged = changed;
 }
 
 void wfmain::showMainWindow()
@@ -5796,6 +5828,9 @@ void wfmain::showAndRaiseWidget(QWidget *w)
 {
     if(!w)
         return;
+
+    if (w == setupui)
+        loadProfileForSettings();
 
 #ifdef WFVIEW_IOS
     if (w == setupui || w == selRad || w == logWindow ||
@@ -8101,7 +8136,11 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
 
         ui->memoriesBtn->setEnabled(rigCaps->commands.contains(funcMemoryContents));
 
+#ifdef WFVIEW_IOS
         ui->connectBtn->setText("無線機から切断"); // We must be connected now.
+#else
+        ui->connectBtn->setText("切断して戻る"); // We must be connected now.
+#endif
         connStatus = connConnected;
 
         // Now we know that we are connected, enable rigctld

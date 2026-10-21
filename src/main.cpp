@@ -197,6 +197,12 @@ int main(int argc, char *argv[])
     }
 
     qDebug() << "Changed to translation language: " << myappTranslator.language();
+    // Qt's own strings (Yes / No / Cancel and other standard buttons), from
+    // the translations folder that windeployqt puts next to the program.
+    QTranslator qtTranslator;
+    if (qtTranslator.load(QLocale(), QLatin1String("qt"), QLatin1String("_"),
+                          QCoreApplication::applicationDirPath() + QLatin1String("/translations")))
+        a.installTranslator(&qtTranslator);
 #endif
 
     for(int c=1; c<argc; c++)

@@ -551,7 +551,7 @@ void memories::rowAdded(int row, memoryType mem)
         }
     }
 
-    QPushButton* recall = new QPushButton("Recall");
+    QPushButton* recall = new QPushButton("呼出");
     ui->table->setCellWidget(row,columnRecall,recall);
 
     connect(recall, &QPushButton::clicked, this, [=]() {
@@ -1764,7 +1764,7 @@ void memories::on_modeButton_clicked(bool on)
         // The IC9700 may be in satellite mode, so disable that first.
         if (rigCaps->commands.contains(funcSatelliteMode))
            queue->add(priorityImmediate,queueItem(funcSatelliteMode,QVariant::fromValue(false),false,0)); // Make sure we are in not in satellite mode.
-        ui->modeButton->setText("Select Memory Mode");
+        ui->modeButton->setText("メモリーモードを選択");
         if (disableCommands) {
             for( const commandList &c: activeCommands) {
                 queue->add(c.prio,c.func,true,c.receiver);
@@ -1777,7 +1777,7 @@ void memories::on_modeButton_clicked(bool on)
         checked=false;
     } else if (on && !checked) {
         qInfo() << "Selecting Memory Mode";
-        ui->modeButton->setText("Select VFO Mode");
+        ui->modeButton->setText("VFO モードを選択");
         for (uchar i = 0;i < rigCaps->numReceiver;i++) {
             queue->add(priorityImmediate,funcMemoryMode,false,i);
         }
@@ -1903,7 +1903,7 @@ void memories::receiveMemory(memoryType mem)
         if (row == -1) {
             ui->table->insertRow(ui->table->rowCount());
             row=ui->table->rowCount()-1;
-            QPushButton* recall = new QPushButton("Recall");
+            QPushButton* recall = new QPushButton("呼出");
             ui->table->setCellWidget(row,columnRecall,recall);
             connect(recall, &QPushButton::clicked, this, [=]() {                
                 recallMem(mem.channel);
@@ -2100,7 +2100,7 @@ void memories::on_csvImport_clicked()
                 ui->table->insertRow(rownum);
 
 
-                QPushButton* recall = new QPushButton("Recall");
+                QPushButton* recall = new QPushButton("呼出");
                 ui->table->setCellWidget(rownum,columnRecall,recall);
                 connect(recall, &QPushButton::clicked, this, [=]() {
                     recallMem(row[0].toInt());
@@ -2296,11 +2296,11 @@ void memories::on_scanButton_toggled(bool scan)
     // Change the priority of funcSelectedFreq so that it updates quicker during scans!
     static queuePriority prio = priorityNone;
     if (scan) {
-        ui->scanButton->setText("Stop Scan");
+        ui->scanButton->setText("スキャン停止");
         prio=queue->changePriority(priorityHighest,funcSelectedFreq,0);
 
     } else {
-        ui->scanButton->setText("Start Scan");
+        ui->scanButton->setText("スキャン開始");
         if (prio != priorityNone)
             queue->changePriority(prio,funcSelectedFreq,0);
     }

@@ -545,7 +545,7 @@ void TxAudioProcessingWidget::buildUi()
             hl->setContentsMargins(0, 0, 0, 0);
             hl->setSpacing(4);
             eqEnable   = new QCheckBox(tr("Enable EQ"));
-            clearEqBtn = new QPushButton(tr("Clear"));
+            clearEqBtn = new QPushButton(tr("クリア"));
             clearEqBtn->setToolTip(tr("Reset all EQ bands to 0 dB"));
             hl->addWidget(eqEnable);
             hl->addWidget(clearEqBtn);

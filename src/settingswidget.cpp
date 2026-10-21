@@ -136,6 +136,10 @@ settingswidget::settingswidget(QWidget *parent) :
     ui(new Ui::settingswidget)
 {
     ui->setupUi(this);
+#ifdef WFVIEW_IOS
+    // iOS apps are not quit from inside the app.
+    ui->exitProgramBtn->hide();
+#endif
 
     connect(QGuiApplication::inputMethod(), &QInputMethod::keyboardRectangleChanged,
             this, &settingswidget::adjustForOnscreenKeyboard);
@@ -200,9 +204,9 @@ void settingswidget::createConnectionProfileControls()
     if (connectionProfileCombo->lineEdit() != Q_NULLPTR)
         connectionProfileCombo->lineEdit()->setPlaceholderText(tr("Enter profile name"));
 
-    connectionProfileSaveBtn = new QPushButton(tr("Save"), ui->groupConnection);
+    connectionProfileSaveBtn = new QPushButton(tr("保存"), ui->groupConnection);
     connectionProfileSaveBtn->setObjectName(QStringLiteral("connectionProfileSaveBtn"));
-    connectionProfileDeleteBtn = new QPushButton(tr("Delete"), ui->groupConnection);
+    connectionProfileDeleteBtn = new QPushButton(tr("削除"), ui->groupConnection);
     connectionProfileDeleteBtn->setObjectName(QStringLiteral("connectionProfileDeleteBtn"));
 
     QHBoxLayout *profileButtons = new QHBoxLayout;
@@ -1770,7 +1774,7 @@ void settingswidget::serverAddUserLine(int row, const QString &user, const QStri
     ui->serverUsersTable->setCellWidget(row, 2, comboBox);
 
     QPushButton* button = new QPushButton();
-    button->setText(tr("Delete"));
+    button->setText(tr("削除"));
     button->setProperty("row", row);
     button->setProperty("col", (int)3);
     connect(button, SIGNAL(clicked()), this, SLOT(onServerUserFieldChanged()));
@@ -3882,9 +3886,9 @@ void settingswidget::connectionStatus(bool conn)
     ui->radioDisconnectLabel->setVisible(conn);
 
     if(conn) {
-        ui->connectBtn->setText("Disconnect from radio");
+        ui->connectBtn->setText("無線機から切断");
     } else {
-        ui->connectBtn->setText("Connect to radio");
+        ui->connectBtn->setText("無線機に接続");
     }
 }
 
@@ -3915,4 +3919,9 @@ void settingswidget::on_saveSettingsBtn_clicked()
 void settingswidget::on_revertSettingsBtn_clicked()
 {
     emit revertSettingsButtonPressed();
+}
+
+void settingswidget::on_exitProgramBtn_clicked()
+{
+    emit exitProgramButtonPressed();
 }

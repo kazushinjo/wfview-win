@@ -124,8 +124,8 @@ void RxAudioProcessingWidget::setConnected(bool connected)
             anrCollectTimer->stop();
             m_anrCollecting = false;
         }
-        anrCollectBtn->setText(m_anrHasProfile ? tr("Collect New Noise Sample")
-                                               : tr("Collect Noise Sample"));
+        anrCollectBtn->setText(m_anrHasProfile ? tr("ノイズサンプルを再収集")
+                                               : tr("ノイズサンプルを収集"));
     }
 }
 
@@ -294,7 +294,7 @@ void RxAudioProcessingWidget::buildUi()
 
     // ── Debug capture button (hidden unless --debug) ─────────────────────────
     {
-        debugCaptureBtn = new QPushButton(tr("Capture RX Audio (5 s)"));
+        debugCaptureBtn = new QPushButton(tr("受信音声を録音 (5 秒)"));
         debugCaptureBtn->setVisible(false);  // shown only via setDebugMode(true)
         mainLayout->addWidget(debugCaptureBtn);
         connect(debugCaptureBtn, &QPushButton::clicked,
@@ -565,7 +565,7 @@ void RxAudioProcessingWidget::buildUi()
 
         // Noise sample collection
         {
-            anrCollectBtn = new QPushButton(tr("Collect Noise Sample"));
+            anrCollectBtn = new QPushButton(tr("ノイズサンプルを収集"));
             anrCollectBtn->setToolTip(tr(
                 "Click to start collecting a noise sample.\n"
                 "Play audio containing only background noise, then click Stop.\n"
@@ -626,7 +626,7 @@ void RxAudioProcessingWidget::buildUi()
             hl->setSpacing(6);
             eqEnableCheck = new QCheckBox(tr("Enable EQ"));
             eqEnableCheck->setToolTip(tr("Enable the 4-band receive equalizer."));
-            eqClearBtn = new QPushButton(tr("Clear"));
+            eqClearBtn = new QPushButton(tr("クリア"));
             eqClearBtn->setToolTip(tr("Reset all EQ band gains to 0 dB (flat)."));
             hl->addWidget(eqEnableCheck);
             hl->addWidget(eqClearBtn);
@@ -1016,8 +1016,8 @@ void RxAudioProcessingWidget::onAnrCollectClicked()
         // User pressed "Stop Collecting" early
         anrCollectTimer->stop();
         m_anrCollecting = false;
-        anrCollectBtn->setText(m_anrHasProfile ? tr("Collect New Noise Sample")
-                                               : tr("Collect Noise Sample"));
+        anrCollectBtn->setText(m_anrHasProfile ? tr("ノイズサンプルを再収集")
+                                               : tr("ノイズサンプルを収集"));
         lblAnrStatus->setText(tr("Collecting stopped — waiting for profile to build…"));
         anrCollectBtn->setEnabled(false);
         emit anrCollectToggled(false);   // triggers wfmain → rxProc->stopAnrProfile()
@@ -1025,7 +1025,7 @@ void RxAudioProcessingWidget::onAnrCollectClicked()
         // User pressed "Collect Noise Sample"
         m_anrCollecting = true;
         m_anrCountdown  = 5;
-        anrCollectBtn->setText(tr("Stop Collecting… (auto-stop in %1 s)").arg(m_anrCountdown));
+        anrCollectBtn->setText(tr("収集を停止…（%1 秒後に自動停止）").arg(m_anrCountdown));
         lblAnrStatus->setText(tr("Recording noise sample — play audio with only background noise…"));
         anrCollectTimer->start();        // 1-second ticks
         emit anrCollectToggled(true);    // triggers wfmain → rxProc->startAnrProfile()
@@ -1040,15 +1040,15 @@ void RxAudioProcessingWidget::onAnrCollectTimeout()
     --m_anrCountdown;
     if (m_anrCountdown > 0) {
         // Update countdown text
-        anrCollectBtn->setText(tr("Stop Collecting… (auto-stop in %1 s)").arg(m_anrCountdown));
+        anrCollectBtn->setText(tr("収集を停止…（%1 秒後に自動停止）").arg(m_anrCountdown));
         return;
     }
 
     // Countdown reached zero — auto-stop
     anrCollectTimer->stop();
     m_anrCollecting = false;
-    anrCollectBtn->setText(m_anrHasProfile ? tr("Collect New Noise Sample")
-                                           : tr("Collect Noise Sample"));
+    anrCollectBtn->setText(m_anrHasProfile ? tr("ノイズサンプルを再収集")
+                                           : tr("ノイズサンプルを収集"));
     lblAnrStatus->setText(tr("5 s sample collected — building noise profile…"));
     anrCollectBtn->setEnabled(false);
     emit anrCollectToggled(false);  // triggers wfmain → rxProc->stopAnrProfile()
@@ -1059,11 +1059,11 @@ void RxAudioProcessingWidget::onAnrProfileReady(bool success)
     anrCollectBtn->setEnabled(m_radioConnected);
     if (success) {
         m_anrHasProfile = true;
-        anrCollectBtn->setText(tr("Collect New Noise Sample"));
+        anrCollectBtn->setText(tr("ノイズサンプルを再収集"));
         lblAnrStatus->setText(tr("Noise profile ready — ANR active."));
     } else {
         m_anrHasProfile = false;
-        anrCollectBtn->setText(tr("Collect Noise Sample"));
+        anrCollectBtn->setText(tr("ノイズサンプルを収集"));
         lblAnrStatus->setText(tr("Profile build failed (sample too short?).  Try again."));
     }
     updateAnrControlState();
@@ -1127,15 +1127,15 @@ void RxAudioProcessingWidget::updateAnrControlState()
 
     if (m_anrHasProfile) {
         anrCollectBtn->setText(hasMode
-            ? tr("Collect New Noise Sample (%1)").arg(m_currentModeName)
-            : tr("Collect New Noise Sample"));
+            ? tr("ノイズサンプルを再収集 (%1)").arg(m_currentModeName)
+            : tr("ノイズサンプルを再収集"));
         lblAnrStatus->setText(hasMode
             ? tr("Noise profile for %1 ready — ANR active.").arg(m_currentModeName)
             : tr("Noise profile ready — ANR active."));
     } else {
         anrCollectBtn->setText(hasMode
-            ? tr("Collect Noise Sample (%1)").arg(m_currentModeName)
-            : tr("Collect Noise Sample"));
+            ? tr("ノイズサンプルを収集 (%1)").arg(m_currentModeName)
+            : tr("ノイズサンプルを収集"));
         lblAnrStatus->setText(hasMode
             ? tr("No noise sample for %1 — collect one before using ANR.").arg(m_currentModeName)
             : tr("No noise sample — collect one before using ANR."));
@@ -1206,7 +1206,7 @@ void RxAudioProcessingWidget::onDebugCaptureClicked()
 {
     debugCaptureBtn->setEnabled(false);
     m_debugCountdown = 5;
-    debugCaptureBtn->setText(tr("Recording... (%1)").arg(m_debugCountdown));
+    debugCaptureBtn->setText(tr("録音中... (%1)").arg(m_debugCountdown));
     debugCaptureTimer->start();
     emit debugCaptureRequested();
 }
@@ -1215,10 +1215,10 @@ void RxAudioProcessingWidget::onDebugCaptureCountdown()
 {
     m_debugCountdown--;
     if (m_debugCountdown > 0) {
-        debugCaptureBtn->setText(tr("Recording... (%1)").arg(m_debugCountdown));
+        debugCaptureBtn->setText(tr("録音中... (%1)").arg(m_debugCountdown));
     } else {
         debugCaptureTimer->stop();
-        debugCaptureBtn->setText(tr("Finishing..."));
+        debugCaptureBtn->setText(tr("処理中..."));
     }
 }
 
@@ -1226,7 +1226,7 @@ void RxAudioProcessingWidget::onDebugCaptureComplete(QString filePath)
 {
     debugCaptureTimer->stop();
     debugCaptureBtn->setEnabled(true);
-    debugCaptureBtn->setText(tr("Capture RX Audio (5 s)"));
+    debugCaptureBtn->setText(tr("受信音声を録音 (5 秒)"));
     if (!filePath.isEmpty())
         qInfo(logAudio) << "Debug capture saved:" << filePath;
 }

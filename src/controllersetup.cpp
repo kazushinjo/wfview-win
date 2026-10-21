@@ -106,13 +106,13 @@ void controllerSetup::init(usbDevMap* dev, QVector<BUTTON>* but, QVector<KNOB>* 
     QHBoxLayout* colorLayout = new QHBoxLayout();
     udLayout->addLayout(colorLayout,4,1);
 
-    buttonOnColor = new QPushButton("Color");
+    buttonOnColor = new QPushButton("色");
     colorLayout->addWidget(buttonOnColor);
 
-    buttonOffColor = new QPushButton("Pressed");
+    buttonOffColor = new QPushButton("押下時の色");
     colorLayout->addWidget(buttonOffColor);
 
-    buttonIcon = new QPushButton("Icon");
+    buttonIcon = new QPushButton("アイコン");
     udLayout->addWidget(buttonIcon,5,0);
     iconLabel = new QLabel("<None>");
     udLayout->addWidget(iconLabel,5,1);
@@ -708,7 +708,7 @@ void controllerSetup::newDevice(USBDEVICE* dev)
     connect(c->orientation, qOverload<int>(&QComboBox::currentIndexChanged), c->orientation,
         [dev,this](int index) { this->orientationChanged(dev,index); });
 
-    c->color = new QPushButton("Color");
+    c->color = new QPushButton("色");
     c->color->setStyleSheet(QString("background-color: %1").arg(dev->color.name(QColor::HexArgb)));
     c->grid->addWidget(c->color,1,3);
     connect(c->color, &QPushButton::clicked, c->color,

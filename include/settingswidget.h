@@ -108,6 +108,7 @@ signals:
     void connectButtonPressed();
     void saveSettingsButtonPressed();
     void revertSettingsButtonPressed();
+    void exitProgramButtonPressed();
     void connectionProfileSelected(QString name);
     void connectionProfileSaveRequested(QString name);
     void connectionProfileDeleteRequested(QString name);
@@ -282,6 +283,8 @@ private slots:
     void on_saveSettingsBtn_clicked();
 
     void on_revertSettingsBtn_clicked();
+
+    void on_exitProgramBtn_clicked();
 
     void on_colorSetBtnSpectFillTop_clicked();
 

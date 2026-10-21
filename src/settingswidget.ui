@@ -1967,7 +1967,7 @@ ONLY use Manual CI-V when Transceive mode is not supported</string>
                   <item row="15" column="9">
                    <widget class="QPushButton" name="colorSetBtnButtonOn">
                     <property name="text">
-                     <string>Button On</string>
+                     <string>ボタン ON</string>
                     </property>
                    </widget>
                   </item>
@@ -2203,7 +2203,7 @@ ONLY use Manual CI-V when Transceive mode is not supported</string>
                   <item row="15" column="5">
                    <widget class="QPushButton" name="colorSetBtnButtonOff">
                     <property name="text">
-                     <string>Button Off</string>
+                     <string>ボタン OFF</string>
                     </property>
                    </widget>
                   </item>
@@ -2636,7 +2636,7 @@ ONLY use Manual CI-V when Transceive mode is not supported</string>
            <item>
             <widget class="QPushButton" name="pttOnBtn">
              <property name="text">
-              <string>PTT On</string>
+              <string>PTT オン</string>
              </property>
              <property name="shortcut">
               <string>Ctrl+S</string>
@@ -2646,7 +2646,7 @@ ONLY use Manual CI-V when Transceive mode is not supported</string>
            <item>
             <widget class="QPushButton" name="pttOffBtn">
              <property name="text">
-              <string>PTT Off</string>
+              <string>PTT オフ</string>
              </property>
             </widget>
            </item>
@@ -3038,28 +3038,28 @@ ONLY use Manual CI-V when Transceive mode is not supported</string>
                      <item>
                       <widget class="QPushButton" name="serverUsersAddBtn">
                        <property name="text">
-                        <string>Add User</string>
+                        <string>ユーザー追加</string>
                        </property>
                       </widget>
                      </item>
                      <item>
                       <widget class="QPushButton" name="serverUsersInsertBtn">
                        <property name="text">
-                        <string>Insert User</string>
+                        <string>ユーザー挿入</string>
                        </property>
                       </widget>
                      </item>
                      <item>
                       <widget class="QPushButton" name="serverUsersCloneBtn">
                        <property name="text">
-                        <string>Clone User</string>
+                        <string>ユーザー複製</string>
                        </property>
                       </widget>
                      </item>
                      <item>
                       <widget class="QPushButton" name="serverUsersDeleteBtn">
                        <property name="text">
-                        <string>Delete User</string>
+                        <string>ユーザー削除</string>
                        </property>
                       </widget>
                      </item>
@@ -3899,10 +3899,23 @@ ONLY use Manual CI-V when Transceive mode is not supported</string>
      <item>
       <widget class="QPushButton" name="connectBtn">
        <property name="accessibleName">
-        <string>Connect to Radio</string>
+        <string>無線機に接続</string>
        </property>
        <property name="text">
-        <string>Connect to Radio</string>
+        <string>無線機に接続</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="exitProgramBtn">
+       <property name="accessibleName">
+        <string>プログラム終了</string>
+       </property>
+       <property name="toolTip">
+        <string>wfview を終了します</string>
+       </property>
+       <property name="text">
+        <string>プログラム終了</string>
        </property>
       </widget>
      </item>

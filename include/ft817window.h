@@ -150,6 +150,7 @@ public:
 
 signals:
     void closed();
+    void exitRequested();   // radio powered off with the 電源 key: quit wfview
 
 protected:
     void closeEvent(QCloseEvent *event) override;

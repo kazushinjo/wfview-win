@@ -721,7 +721,7 @@
          <string>Use this button to set the current bandstack register frequency/mode</string>
         </property>
         <property name="text">
-         <string>Set to current freq/mode</string>
+         <string>現在の周波数/モードを登録</string>
         </property>
        </widget>
       </item>

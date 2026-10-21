@@ -532,7 +532,7 @@ void AudioProcessingWidget::buildUi()
 
         auto* eqEnableRow = new QHBoxLayout;
         eqEnable = new QCheckBox(tr("Enable EQ"));
-        clearEqBtn = new QPushButton(tr("Clear"));
+        clearEqBtn = new QPushButton(tr("クリア"));
         clearEqBtn->setToolTip(tr("Reset all EQ bands to 0 dB"));
         eqEnableRow->addWidget(eqEnable);
         eqEnableRow->addWidget(clearEqBtn);

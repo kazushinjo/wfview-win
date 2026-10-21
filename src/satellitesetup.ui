@@ -492,7 +492,7 @@
       <item>
        <widget class="QPushButton" name="pushButton">
         <property name="text">
-         <string>Set VFOs</string>
+         <string>VFO を設定</string>
         </property>
        </widget>
       </item>
@@ -506,7 +506,7 @@
       <item>
        <widget class="QPushButton" name="pushButton_3">
         <property name="text">
-         <string>Add Markers</string>
+         <string>マーカーを追加</string>
         </property>
        </widget>
       </item>

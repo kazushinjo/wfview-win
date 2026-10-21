@@ -1729,14 +1729,31 @@ void ft817Window::powerOn()
 
 void ft817Window::powerOff()
 {
-    const auto ret = QMessageBox::question(this, tr("FT-817/818"), tr("無線機の電源を OFF にしますか？"),
+    const auto ret = QMessageBox::question(this, tr("FT-817/818"),
+                                           tr("無線機の電源を OFF にして、プログラムを終了しますか？"),
                                            QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
-    if (ret != QMessageBox::Yes)
+    if (ret != QMessageBox::Yes || !isOpen())
         return;
-    enqueue(Cat::set, cmd(opPowerOff));
+    // Send it right away instead of queueing: polling stops and the
+    // program exits right after.
+    stopScan(QString());
+    pollTimer->stop();
+    responseTimer->stop();
+    gapTimer->stop();
+    queue.clear();
+    busy = false;
+    if (st.transmitting || awaitingTransmit)
+        sendPttOffNow();
+    qDebug(logSystem()) << "FT-817/818: TX" << cmd(opPowerOff).toHex(' ').toUpper();
+    serial->write(cmd(opPowerOff));
+    serial->waitForBytesWritten(100);
+    appendLog(tr("無線機の電源を OFF にしました。プログラムを終了します"));
     st.catOk = false;
     st.powerOff = true;
     updateUi();
+    // Let the USB-serial adapter put the command on the wire before the
+    // port is closed.
+    QTimer::singleShot(300, this, &ft817Window::exitRequested);
 }
 
 void ft817Window::startTransmit()
