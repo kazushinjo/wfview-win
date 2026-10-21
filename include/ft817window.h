@@ -23,8 +23,9 @@ class QSerialPort;
 class QTimer;
 class QPushButton;
 class QLineEdit;
-class QPlainTextEdit;
 class QDialog;
+class QComboBox;
+class QSpinBox;
 
 // Model ID stored in prefs.radioCIVAddr / the connection profile to select
 // the FT-817/818.  The real radio has no ID command, so this is only a marker.
@@ -122,10 +123,12 @@ public:
 
 signals:
     void digitClicked(int step);
+    void softKeyClicked(int key);   // 0-2: A / B / C labels, 3: F-n page label
 
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
 
 private:
     void drawSegmentDigit(QPainter& p, const QRectF& r, QChar c, bool lit);
@@ -133,6 +136,7 @@ private:
 
     ft817LcdState st;
     QVector<QPair<QRectF, int>> digitRects;
+    QVector<QRectF> softKeyRects;
 };
 
 class ft817Window : public QWidget
@@ -211,6 +215,16 @@ private:
     void stopTransmit();
     void sendPttOffNow();
 
+    // Software range scan: the FT-817 CAT has no scan command, so step the
+    // frequency and stop on an open squelch (RX status bit 7).
+    enum class ScanResume { afterTime, afterSignalGone, stay };
+    void startScan();
+    void stopScan(const QString& reason);
+    void scanGoTo(qint64 hz);
+    void scanAdvance();
+    void scanReadRx();
+    void scanHandleRx(bool signal);
+
     static QByteArray cmd(quint8 opcode, quint8 p1 = 0, quint8 p2 = 0, quint8 p3 = 0, quint8 p4 = 0);
     static QByteArray bcd(qint64 value, int digits);
     static QString formatFrequency(qint64 hz);
@@ -245,13 +259,28 @@ private:
     bool awaitingTransmit = false;
     bool awaitingReceive = false;
 
+    // Range scan
+    QTimer *scanTimer = nullptr;
+    bool scanning = false;
+    bool scanSetting = false;       // setFrequency() called by the scan itself
+    bool scanAwaitingRx = false;
+    bool scanHolding = false;
+    qint64 scanStartHz = 0, scanEndHz = 0, scanStepHz = 0, scanFreqHz = 0;
+    qint64 scanHoldSinceMs = 0, scanLastSignalMs = 0;
+    qint64 scanStoppedAtHz = -1;
+
     ft817Lcd *lcd = nullptr;
     QList<QPushButton*> softButtons;
     QPushButton *pttBtn = nullptr;
     QPushButton *refreshBtn = nullptr;
     QPushButton *disconnectBtn = nullptr;
     QLineEdit *freqInput = nullptr;
-    QPlainTextEdit *logView = nullptr;
+    QLineEdit *scanStartEdit = nullptr;
+    QLineEdit *scanEndEdit = nullptr;
+    QLineEdit *scanStepEdit = nullptr;
+    QComboBox *scanResumeCombo = nullptr;
+    QSpinBox *scanWaitSpin = nullptr;
+    QPushButton *scanBtn = nullptr;
 };
 
 #endif // FT817WINDOW_H

@@ -6,7 +6,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QPlainTextEdit>
 #include <QBoxLayout>
 #include <QGridLayout>
 #include <QFormLayout>
@@ -14,6 +13,8 @@
 #include <QDialogButtonBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QSpinBox>
+#include <QSettings>
 #include <QMessageBox>
 #include <QPainter>
 #include <QPainterPath>
@@ -102,14 +103,14 @@ const char *digModeNames[] = { "RTTY", "PSK31-L", "PSK31-U", "USER-L", "USER-U" 
 const char *softKeyRows[][3] = {
     { "A/B", "SPL", "CLAR" },
     { "RPT", "TON", "SET" },
-    { "NAR", "STEP", "LOG" },
+    { "NAR", "STEP", "" },
 };
 constexpr int softKeyPages = 3;
 
 const char *panelStyle =
     "QPushButton { color: #f2f2f2; font-weight: bold; font-size: 11px;"
     " background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5c5c5c, stop:1 #2a2a2a);"
-    " border: 1px solid #0d0d0d; border-radius: 5px; padding: 3px 6px; min-height: 26px; }"
+    " border: 1px solid #0d0d0d; border-radius: 10px; padding: 3px 6px; min-height: 26px; }"
     "QPushButton:pressed { background: #1c1c1c; }"
     "QPushButton:disabled { color: #777; }"
     "QLabel { color: #dcdcdc; }";
@@ -267,6 +268,7 @@ ft817Lcd::ft817Lcd(QWidget *parent) : QWidget(parent)
 {
     setMinimumSize(480, 200);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setMouseTracking(true);     // hand cursor over clickable digits and soft keys
 }
 
 void ft817Lcd::setState(const ft817LcdState& s)
@@ -530,16 +532,19 @@ void ft817Lcd::paintEvent(QPaintEvent *event)
     f.setPixelSize(int(H * 0.07));
     p.setFont(f);
     const double cellW = gw / 4.0;
+    softKeyRects.clear();
     for (int i = 0; i < 3; ++i)
     {
         const QRectF cell(gx + i * cellW, keyTop, cellW - 10, H * 0.11);
+        softKeyRects.append(cell);
         p.setPen(QPen(lit ? QColor(30, 20, 8) : QColor(30, 20, 8, 28), 1.5));
         p.setBrush(Qt::NoBrush);
         p.drawRect(cell);
         p.drawText(cell, Qt::AlignCenter, i < st.softKeys.size() ? st.softKeys.at(i) : QString());
     }
-    p.drawText(QRectF(gx + 3 * cellW, keyTop, cellW, H * 0.11), Qt::AlignCenter,
-               QString("F-%1").arg(st.page + 1));
+    const QRectF pageCell(gx + 3 * cellW, keyTop, cellW, H * 0.11);
+    softKeyRects.append(pageCell);
+    p.drawText(pageCell, Qt::AlignCenter, QString("F-%1").arg(st.page + 1));
 
     if (!st.connected || !st.catOk)
     {
@@ -561,7 +566,26 @@ void ft817Lcd::mousePressEvent(QMouseEvent *event)
             return;
         }
     }
+    for (int i = 0; i < softKeyRects.size(); ++i)
+    {
+        if (softKeyRects.at(i).contains(event->position()))
+        {
+            emit softKeyClicked(i);
+            return;
+        }
+    }
     QWidget::mousePressEvent(event);
+}
+
+void ft817Lcd::mouseMoveEvent(QMouseEvent *event)
+{
+    bool clickable = false;
+    for (const auto& d : digitRects)
+        clickable = clickable || d.first.contains(event->position());
+    for (const QRectF& r : softKeyRects)
+        clickable = clickable || r.contains(event->position());
+    setCursor(clickable ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    QWidget::mouseMoveEvent(event);
 }
 
 // ---------------------------------------------------------------------------
@@ -613,6 +637,7 @@ ft817Window::ft817Window(const QString& portName, quint32 baudRate, bool ft818, 
         if (err == QSerialPort::ResourceError)
         {
             // USB-serial adapter unplugged
+            stopScan(tr("シリアル接続が切れたためスキャンを停止しました"));
             pollTimer->stop();
             responseTimer->stop();
             queue.clear();
@@ -644,6 +669,10 @@ ft817Window::ft817Window(const QString& portName, quint32 baudRate, bool ft818, 
     safetyTimer->setSingleShot(true);
     safetyTimer->setInterval(180000);
     connect(safetyTimer, &QTimer::timeout, this, &ft817Window::safetyTimeout);
+
+    scanTimer = new QTimer(this);
+    scanTimer->setSingleShot(true);
+    connect(scanTimer, &QTimer::timeout, this, &ft817Window::scanReadRx);
 
     st.frequencyHz = 7100000;
     st.mode = "USB";
@@ -691,6 +720,7 @@ bool ft817Window::openPort()
 
 void ft817Window::closeEvent(QCloseEvent *event)
 {
+    stopScan(QString());
     pollTimer->stop();
     responseTimer->stop();
     gapTimer->stop();
@@ -747,7 +777,7 @@ void ft817Window::buildUi()
         return l;
     };
 
-    // Left key block: MODE, BAND, PWR / LOCK
+    // Left key block: MODE, BAND, power / LOCK
     auto *left = new QGridLayout();
     left->setVerticalSpacing(4);
     left->setHorizontalSpacing(6);
@@ -762,7 +792,7 @@ void ft817Window::buildUi()
     left->addWidget(bandDown, 3, 0);
     left->addWidget(bandUp, 3, 1);
     left->setRowMinimumHeight(4, 14);
-    auto *pwrBtn = makeKey("PWR", tr("CATで電源 ON / OFF"));
+    auto *pwrBtn = makeKey(tr("電源"), tr("CATで電源 ON / OFF"));
     auto *lockBtn = makeKey("LOCK", tr("パネルロック ON / OFF"));
     left->addWidget(pwrBtn, 5, 0);
     left->addWidget(lockBtn, 5, 1);
@@ -802,6 +832,14 @@ void ft817Window::buildUi()
     });
     keys->addWidget(fBtn);
     centre->addLayout(keys);
+    // The LCD soft key labels act like the A / B / C / F keys below them
+    // (click() does nothing while the keys are disabled).
+    connect(lcd, &ft817Lcd::softKeyClicked, this, [this, fBtn](int key) {
+        if (key < softButtons.size())
+            softButtons.at(key)->click();
+        else
+            fBtn->click();
+    });
     body->addLayout(centre, 1);
 
     // Right: SEL knob above the large main dial
@@ -835,26 +873,22 @@ void ft817Window::buildUi()
     auto *bottom = new QHBoxLayout();
     bottom->setSpacing(8);
     pttBtn = makeKey(tr("送信 (PTT)"));
-    pttBtn->setMinimumWidth(130);
+    pttBtn->setMinimumWidth(150);
     connect(pttBtn, &QPushButton::clicked, this, [this]() {
         if (st.transmitting || awaitingTransmit)
         {
             stopTransmit();
             return;
         }
-        const auto ret = QMessageBox::question(this, tr("送信を開始しますか？"),
-            tr("アンテナ、周波数、モード、出力を確認してください。"),
-            QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
-        if (ret == QMessageBox::Yes)
-            startTransmit();
+        startTransmit();
     });
     bottom->addWidget(pttBtn);
     bottom->addSpacing(10);
     bottom->addWidget(new QLabel(tr("周波数入力")));
     freqInput = new QLineEdit(this);
     freqInput->setPlaceholderText(tr("MHz（例 7.0745）"));
-    freqInput->setFixedWidth(140);
-    freqInput->setStyleSheet("QLineEdit { background: #f0f0f0; color: black; border-radius: 3px; padding: 2px; }");
+    freqInput->setFixedWidth(180);
+    freqInput->setStyleSheet("QLineEdit { background: #f0f0f0; color: black; border: 1px solid #8a8a8a; border-radius: 8px; padding: 2px 6px; }");
     connect(freqInput, &QLineEdit::returnPressed, this, [this]() {
         QString text = freqInput->text().trimmed();
         text.replace(',', '.');
@@ -875,23 +909,86 @@ void ft817Window::buildUi()
     connect(refreshBtn, &QPushButton::clicked, this, &ft817Window::refreshAll);
     bottom->addWidget(refreshBtn);
     bottom->addStretch();
-    auto *logBtn = makeKey(tr("CATログ"));
-    connect(logBtn, &QPushButton::clicked, this, [this]() { logView->setVisible(!logView->isVisible()); });
-    bottom->addWidget(logBtn);
     disconnectBtn = makeKey(tr("切断して戻る"));
     connect(disconnectBtn, &QPushButton::clicked, this, &QWidget::close);
     bottom->addWidget(disconnectBtn);
-    root->addLayout(bottom);
 
-    logView = new QPlainTextEdit(this);
-    logView->setReadOnly(true);
-    logView->setMaximumBlockCount(300);
-    logView->setFixedHeight(110);
-    logView->setStyleSheet("QPlainTextEdit { background: #101010; color: #9c9; font-family: Consolas, monospace; }");
-    logView->setVisible(false);
-    root->addWidget(logView);
+    // Range scan strip, above the bottom strip
+    auto *scanRow = new QHBoxLayout();
+    scanRow->setSpacing(6);
+    const QString editStyle = "QLineEdit { background: #f0f0f0; color: black; border: 1px solid #8a8a8a; border-radius: 8px; padding: 2px 6px; }";
+    auto makeScanEdit = [this, &editStyle](const QString& placeholder, int width) {
+        auto *e = new QLineEdit(this);
+        e->setPlaceholderText(placeholder);
+        e->setFixedWidth(width);
+        e->setStyleSheet(editStyle);
+        return e;
+    };
+    scanRow->addWidget(new QLabel(tr("スキャン  開始")));
+    scanStartEdit = makeScanEdit(tr("MHz"), 110);
+    scanRow->addWidget(scanStartEdit);
+    scanRow->addWidget(new QLabel(tr("終了")));
+    scanEndEdit = makeScanEdit(tr("MHz"), 110);
+    scanRow->addWidget(scanEndEdit);
+    scanRow->addWidget(new QLabel(tr("ステップ")));
+    scanStepEdit = makeScanEdit(tr("kHz"), 80);
+    scanRow->addWidget(scanStepEdit);
+    scanRow->addWidget(new QLabel(tr("kHz")));
+    scanRow->addSpacing(8);
+    scanRow->addWidget(new QLabel(tr("信号で停止後")));
+    scanResumeCombo = new QComboBox(this);
+    scanResumeCombo->addItem(tr("指定秒数後に再開"), int(ScanResume::afterTime));
+    scanResumeCombo->addItem(tr("信号が消えて指定秒数後に再開"), int(ScanResume::afterSignalGone));
+    scanResumeCombo->addItem(tr("停止したまま"), int(ScanResume::stay));
+    scanRow->addWidget(scanResumeCombo);
+    scanWaitSpin = new QSpinBox(this);
+    scanWaitSpin->setRange(1, 60);
+    scanWaitSpin->setSuffix(tr(" 秒"));
+    // Match the line edits; otherwise the dark application style draws it smaller.
+    scanWaitSpin->setFixedWidth(100);
+    scanWaitSpin->setStyleSheet("QSpinBox { background: #f0f0f0; color: black; border: 1px solid #8a8a8a; border-radius: 8px;"
+                                " padding: 2px; selection-background-color: #3874d8; selection-color: white; }");
+    scanRow->addWidget(scanWaitSpin);
+    scanRow->addSpacing(8);
+    scanBtn = makeKey(tr("スキャン開始"), tr("指定範囲をステップごとに受信し、スケルチが開いたら止まります"));
+    scanBtn->setMinimumWidth(140);
+    connect(scanBtn, &QPushButton::clicked, this, [this]() {
+        if (scanning)
+            stopScan(tr("スキャンを停止しました"));
+        else
+            startScan();
+    });
+    scanRow->addWidget(scanBtn);
+    scanRow->addStretch();
 
-    resize(1180, 520);
+    QSettings settings;
+    settings.beginGroup("FT817Scan");
+    scanStartEdit->setText(settings.value("StartMHz").toString());
+    scanEndEdit->setText(settings.value("EndMHz").toString());
+    scanStepEdit->setText(settings.value("StepKHz").toString());
+    scanResumeCombo->setCurrentIndex(qBound(0, settings.value("Resume", 1).toInt(), 2));
+    scanWaitSpin->setValue(settings.value("WaitSec", 5).toInt());
+    settings.endGroup();
+
+    // Scan and bottom strips share larger text and controls (nearer ancestor
+    // style sheet, so it wins over panelStyle's 11px buttons).
+    auto *controls = new QWidget(this);
+    controls->setObjectName("ft817Controls");
+    controls->setStyleSheet(
+        "#ft817Controls QLabel { font-size: 15px; }"
+        "#ft817Controls QLineEdit, #ft817Controls QComboBox, #ft817Controls QSpinBox"
+        " { font-size: 15px; min-height: 32px; }"
+        "#ft817Controls QComboBox { border-radius: 8px; }"
+        "#ft817Controls QPushButton { font-size: 15px; min-height: 36px; }");
+    auto *controlsLayout = new QVBoxLayout(controls);
+    controlsLayout->setContentsMargins(0, 4, 0, 0);
+    controlsLayout->setSpacing(10);
+    controlsLayout->addLayout(scanRow);
+    controlsLayout->addLayout(bottom);
+    root->addWidget(controls);
+
+
+    resize(1180, 600);
 }
 
 void ft817Window::updateUi()
@@ -907,6 +1004,13 @@ void ft817Window::updateUi()
             b->setEnabled(open);
     freqInput->setEnabled(open);
 
+    scanBtn->setText(scanning ? tr("スキャン停止") : tr("スキャン開始"));
+    scanBtn->setStyleSheet(scanning ? "QPushButton { background: #c08000; color: black; }" : QString());
+    for (QWidget *w : {static_cast<QWidget*>(scanStartEdit), static_cast<QWidget*>(scanEndEdit),
+                       static_cast<QWidget*>(scanStepEdit), static_cast<QWidget*>(scanResumeCombo),
+                       static_cast<QWidget*>(scanWaitSpin)})
+        w->setEnabled(open && !scanning);
+
     pttBtn->setText(st.transmitting ? tr("受信に戻す") : tr("送信 (PTT)"));
     pttBtn->setStyleSheet(st.transmitting
         ? "QPushButton { background: #b01010; color: white; }"
@@ -917,7 +1021,15 @@ void ft817Window::applySoftKey(int key)
 {
     const QString name = QString::fromLatin1(softKeyRows[st.page][key]);
     if (name == "A/B")
+    {
         enqueue(Cat::set, cmd(opToggleVfo));
+        // Read the new VFO back once the frequency readback guard (400 ms) has passed.
+        QTimer::singleShot(450, this, [this]() {
+            enqueue(Cat::readFreqMode, cmd(opReadFreqMode));
+            enqueueEeprom(eepromVfo);
+            enqueueEeprom(eepromBand);
+        });
+    }
     else if (name == "SPL")
         toggleSplit();
     else if (name == "CLAR")
@@ -947,8 +1059,6 @@ void ft817Window::applySoftKey(int key)
         st.step = next;
         updateUi();
     }
-    else if (name == "LOG")
-        logView->setVisible(!logView->isVisible());
 }
 
 void ft817Window::showSetDialog()
@@ -1102,7 +1212,7 @@ void ft817Window::processQueue()
 
     if (current.kind != Cat::readFreqMode && current.kind != Cat::readRx && current.kind != Cat::readTx
         && current.kind != Cat::readTxMeter && current.kind != Cat::readEeprom)
-        appendLog("TX  " + current.bytes.toHex(' ').toUpper());
+        qDebug(logSystem()) << "FT-817/818: TX" << current.bytes.toHex(' ').toUpper();
 
     if (serial->write(current.bytes) != current.bytes.size())
     {
@@ -1159,6 +1269,13 @@ void ft817Window::responseTimeout()
         }
         awaitingTransmit = false;
     }
+    if (current.kind == Cat::readRx && scanAwaitingRx)
+    {
+        // Retry the scan's status read instead of stalling the scan.
+        scanAwaitingRx = false;
+        if (scanning)
+            scanTimer->start(200);
+    }
     busy = false;
     rxBuffer.clear();
     processQueue();
@@ -1195,6 +1312,11 @@ void ft817Window::handleResponse(const catItem& item, const QByteArray& data)
         st.busy = (byte(0) & 0x80) == 0;            // bit7 set = squelch closed
         st.codeMatched = (byte(0) & 0x40) == 0;
         st.discCentered = (byte(0) & 0x20) == 0;
+        if (scanAwaitingRx)
+        {
+            scanAwaitingRx = false;
+            scanHandleRx(st.busy);
+        }
         break;
     case Cat::readTx:
     {
@@ -1346,7 +1468,8 @@ void ft817Window::handleResponse(const catItem& item, const QByteArray& data)
 
 void ft817Window::poll()
 {
-    if (busy || !queue.isEmpty() || !isOpen())
+    // The scan does its own status reads; regular polling would slow it down.
+    if (scanning || busy || !queue.isEmpty() || !isOpen())
         return;
     if (QDateTime::currentMSecsSinceEpoch() - lastControlMs < 300)
         return;
@@ -1368,7 +1491,11 @@ void ft817Window::poll()
         enqueue(Cat::readRx, cmd(opReadRx)); break;
     case 4:
         enqueue(Cat::readTx, cmd(opReadTx)); break;
-    case 2: case 5:
+    case 2:
+        // VFO A/B and memory mode every cycle, so a change on the radio shows quickly.
+        enqueueEeprom(eepromVfo);
+        break;
+    case 5:
     {
         const auto reads = eepromReads();
         const auto& r = reads.at(eepromIndex++ % reads.size());
@@ -1435,8 +1562,8 @@ void ft817Window::refreshAll()
 
 void ft817Window::appendLog(const QString& text)
 {
-    if (logView != nullptr)
-        logView->appendPlainText(QDateTime::currentDateTime().toString("HH:mm:ss.zzz  ") + text);
+    // Status and error messages go to the wfview log file.
+    qInfo(logSystem()) << "FT-817/818:" << text;
 }
 
 // --- Operations --------------------------------------------------------------
@@ -1449,6 +1576,8 @@ void ft817Window::setFrequency(qint64 hz)
         appendLog(tr("周波数範囲外です: %1").arg(formatFrequency(hz)));
         return;
     }
+    if (scanning && !scanSetting)
+        stopScan(tr("手動で周波数を変更したためスキャンを停止しました"));
     if (st.locked)
         appendLog(tr("LOCK 中のため本体側で周波数変更が拒否される場合があります"));
     st.frequencyHz = hz;
@@ -1477,7 +1606,8 @@ void ft817Window::selectAdjacentMode(int direction)
 void ft817Window::stepBand(int direction)
 {
     const int n = int(sizeof(bandFrequencies) / sizeof(bandFrequencies[0]));
-    qint64 target = direction > 0 ? bandFrequencies[n - 1] : bandFrequencies[0];
+    // Cyclic: past the top band wraps to the bottom one and vice versa.
+    qint64 target = direction > 0 ? bandFrequencies[0] : bandFrequencies[n - 1];
     if (direction > 0)
     {
         for (int i = 0; i < n; ++i)
@@ -1587,6 +1717,7 @@ void ft817Window::startTransmit()
 {
     if (st.transmitting || awaitingTransmit || !isOpen())
         return;
+    stopScan(tr("送信のためスキャンを停止しました"));
     awaitingTransmit = true;
     awaitingReceive = false;
     st.transmitting = true;
@@ -1620,5 +1751,145 @@ void ft817Window::sendPttOffNow()
     {
         serial->write(cmd(opPttOff));
         serial->waitForBytesWritten(100);
+    }
+}
+
+void ft817Window::startScan()
+{
+    const auto parse = [](QLineEdit *e, double scale, bool *ok) {
+        QString text = e->text().trimmed();
+        text.replace(',', '.');
+        return qRound64(text.toDouble(ok) * scale);
+    };
+    bool okStart = false, okEnd = false, okStep = false;
+    const qint64 startHz = (parse(scanStartEdit, 1000000.0, &okStart) / 10) * 10;
+    const qint64 endHz = (parse(scanEndEdit, 1000000.0, &okEnd) / 10) * 10;
+    const qint64 stepHz = parse(scanStepEdit, 1000.0, &okStep);
+    if (!okStart || !okEnd || startHz < 100000 || endHz > 470000000 || startHz >= endHz)
+    {
+        QMessageBox::warning(this, tr("FT-817/818"),
+                             tr("開始と終了の周波数をMHz単位で入力してください（開始 < 終了）。"));
+        return;
+    }
+    if (!okStep || stepHz < 10 || stepHz % 10 != 0 || stepHz > endHz - startHz)
+    {
+        QMessageBox::warning(this, tr("FT-817/818"),
+                             tr("ステップをkHz単位で入力してください（0.01 kHz 単位、範囲の幅以下）。"));
+        return;
+    }
+
+    QSettings settings;
+    settings.beginGroup("FT817Scan");
+    settings.setValue("StartMHz", scanStartEdit->text().trimmed());
+    settings.setValue("EndMHz", scanEndEdit->text().trimmed());
+    settings.setValue("StepKHz", scanStepEdit->text().trimmed());
+    settings.setValue("Resume", scanResumeCombo->currentIndex());
+    settings.setValue("WaitSec", scanWaitSpin->value());
+    settings.endGroup();
+
+    scanStartHz = startHz;
+    scanEndHz = endHz;
+    scanStepHz = stepHz;
+    scanning = true;
+    scanHolding = false;
+    scanAwaitingRx = false;
+    appendLog(tr("スキャン開始: %1 - %2, ステップ %3 kHz")
+                  .arg(formatFrequency(startHz), formatFrequency(endHz))
+                  .arg(double(stepHz) / 1000.0));
+
+    // Continue after the channel the scan last stopped on, if still tuned there.
+    if (scanStoppedAtHz >= startHz && scanStoppedAtHz <= endHz && st.frequencyHz == scanStoppedAtHz)
+    {
+        scanFreqHz = scanStoppedAtHz;
+        scanAdvance();
+    }
+    else
+    {
+        scanGoTo(startHz);
+    }
+    updateUi();
+}
+
+void ft817Window::stopScan(const QString& reason)
+{
+    if (!scanning)
+        return;
+    scanning = false;
+    scanHolding = false;
+    scanAwaitingRx = false;
+    scanTimer->stop();
+    scanStoppedAtHz = scanFreqHz;
+    if (!reason.isEmpty())
+        appendLog(reason);
+    updateUi();
+}
+
+void ft817Window::scanGoTo(qint64 hz)
+{
+    scanFreqHz = hz;
+    scanSetting = true;
+    setFrequency(hz);
+    scanSetting = false;
+    // Let the receiver and squelch settle before reading the status.
+    scanTimer->start(100);
+}
+
+void ft817Window::scanAdvance()
+{
+    qint64 next = scanFreqHz + scanStepHz;
+    if (next > scanEndHz)
+        next = scanStartHz;
+    scanGoTo(next);
+}
+
+void ft817Window::scanReadRx()
+{
+    if (!scanning || !isOpen())
+        return;
+    scanAwaitingRx = true;
+    enqueue(Cat::readRx, cmd(opReadRx));
+}
+
+void ft817Window::scanHandleRx(bool signal)
+{
+    if (!scanning)
+        return;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const auto resume = ScanResume(scanResumeCombo->currentData().toInt());
+
+    if (!scanHolding)
+    {
+        if (!signal)
+        {
+            scanAdvance();
+            return;
+        }
+        appendLog(tr("信号を検出: %1 (S%2)").arg(formatFrequency(scanFreqHz)).arg(st.sMeter));
+        if (resume == ScanResume::stay)
+        {
+            stopScan(tr("信号を検出したためスキャンを停止しました"));
+            return;
+        }
+        scanHolding = true;
+        scanHoldSinceMs = now;
+        scanLastSignalMs = now;
+        scanTimer->start(200);
+        return;
+    }
+
+    if (signal)
+        scanLastSignalMs = now;
+    const qint64 waitMs = qint64(scanWaitSpin->value()) * 1000;
+    const bool resumeNow = resume == ScanResume::afterTime
+        ? now - scanHoldSinceMs >= waitMs
+        : !signal && now - scanLastSignalMs >= waitMs;
+    if (resumeNow)
+    {
+        scanHolding = false;
+        scanAdvance();
+    }
+    else
+    {
+        scanTimer->start(200);
     }
 }
