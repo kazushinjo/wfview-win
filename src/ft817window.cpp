@@ -1615,7 +1615,15 @@ void ft817Window::stepBand(int direction)
         for (int i = n - 1; i >= 0; --i)
             if (bandFrequencies[i] < st.frequencyHz) { target = bandFrequencies[i]; break; }
     }
+    // Sideband convention: USB from 10 MHz up, LSB below. Applies when in SSB,
+    // and when in FM (incl. FM-N) moving to the 24 MHz band or below; CW, AM,
+    // DIG etc. are left as they are.
+    const quint8 current = modeCode & 0x7F;
+    const bool ssb = current == 0x00 || current == 0x01;
+    const bool fmOnHf = current == 0x08 && target <= 24990000;
     setFrequency(target);
+    if (ssb || fmOnHf)
+        setMode(target >= 10000000 ? 0x01 : 0x00);
 }
 
 void ft817Window::setClarOffset(int hz)
