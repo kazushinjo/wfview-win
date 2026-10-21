@@ -104,6 +104,7 @@ FT-817 シリーズは、本体の前面パネルを模した専用画面で操�
 ## 関連ドキュメント
 
 - [操作説明書](docs/操作説明書.md)
+- [wfview-win 詳細操作説明書（Word）](docs/wfview-win_詳細操作説明書.docx) / [PDF](docs/wfview-win_詳細操作説明書.pdf)
 - [FT-817 / FT-818 操作説明書（Word）](docs/FT-817_操作説明書.docx) / [PDF](docs/FT-817_操作説明書.pdf)
 - [FT-817 / FT-818 CAT 配線表](docs/FT-817_CAT配線表.md)
 - [インストール情報](INSTALL.md)
