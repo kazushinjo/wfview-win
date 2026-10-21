@@ -33,6 +33,8 @@ Name: "desktopicon"; Description: "デスクトップにショートカットを
 [Files]
 ; Main executable
 Source: "{#MySourceDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; Debug symbols: the crash handler needs them for function names in the log
+Source: "{#MySourceDir}\wfview-win.pdb"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Qt core DLLs
 Source: "{#MySourceDir}\Qt6Core.dll";         DestDir: "{app}"; Flags: ignoreversion
