@@ -745,13 +745,10 @@ void ft817Window::buildUi()
 
     // Brand strip
     auto *brand = new QHBoxLayout();
-    auto *yaesu = new QLabel("YAESU");
-    yaesu->setStyleSheet("color: #f5f5f5; font-size: 22px; font-weight: 900; font-style: italic; letter-spacing: 2px;");
     auto *model = new QLabel(ft818 ? "FT-818" : "FT-817");
     model->setStyleSheet("color: #f5f5f5; font-size: 20px; font-weight: 900;");
     auto *sub = new QLabel("HF/50/144/430 MHz ALL MODE TRANSCEIVER");
     sub->setStyleSheet("color: #a8a8a8; font-size: 11px; font-weight: bold;");
-    brand->addWidget(yaesu, 0, Qt::AlignBottom);
     brand->addStretch();
     brand->addWidget(model, 0, Qt::AlignBottom);
     brand->addSpacing(10);
