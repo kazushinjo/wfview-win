@@ -367,11 +367,10 @@ int main(int argc, char *argv[])
     // leave Qt's logical width larger than the device viewport.
     w.show();
 #else
-    w.show();
+    // Only the Settings window at startup; connecting from it opens the
+    // main window (or the FT-817/818 window).
     QTimer::singleShot(0, &w, [&w]() {
-        w.showMaximized();
-        w.raise();
-        w.activateWindow();
+        w.showStartupSettings();
     });
 #endif
 
