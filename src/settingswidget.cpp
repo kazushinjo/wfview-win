@@ -1,4 +1,5 @@
 #include "settingswidget.h"
+#include "ft817window.h"
 #include "qserialportinfo.h"
 #include "ui_settingswidget.h"
 
@@ -1988,6 +1989,13 @@ void settingswidget::populateCivAddrCombo()
             ui->rigCIVaddrCombo->addItem(QString("%1 (%2)").arg(QString::fromLatin1(m.name),
                                          QString::number(m.addr, 16).toUpper()), m.addr);
         }
+    }
+    if (prefs != Q_NULLPTR && prefs->manufacturer == manufYaesu)
+    {
+        // The FT-817/818 has no rig definition file: it uses the legacy binary
+        // CAT protocol and is driven by its own window (see ft817window.h).
+        ui->rigCIVaddrCombo->addItem(QStringLiteral("FT-817 / 817ND (USB serial CAT)"), FT817_MODEL_ID);
+        ui->rigCIVaddrCombo->addItem(QStringLiteral("FT-818 (USB serial CAT)"), FT818_MODEL_ID);
     }
     ui->rigCIVaddrCombo->setCurrentIndex(-1);
     ui->rigCIVaddrCombo->blockSignals(false);

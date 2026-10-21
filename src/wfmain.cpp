@@ -1,5 +1,6 @@
 #include "wfmain.h"
 #include "icomserver.h"
+#include "ft817window.h"
 #include "ui_wfmain.h"
 
 #include "rigidentities.h"
@@ -5430,6 +5431,14 @@ void wfmain::on_connectBtn_clicked()
 {
     this->rigStatus->setText(""); // Clear status
 
+    if (connStatus == connDisconnected && prefs.manufacturer == manufYaesu
+        && (prefs.radioCIVAddr == FT817_MODEL_ID || prefs.radioCIVAddr == FT818_MODEL_ID))
+    {
+        launchFt817Window();
+        ui->connectBtn->clearFocus();
+        return;
+    }
+
     if (connStatus == connDisconnected) {
         connectionHandler(true);
     }
@@ -5439,6 +5448,64 @@ void wfmain::on_connectBtn_clicked()
     }
 
     ui->connectBtn->clearFocus();
+}
+
+void wfmain::launchFt817Window()
+{
+    if (ft817Win)
+    {
+        ft817Win->show();
+        ft817Win->raise();
+        ft817Win->activateWindow();
+        return;
+    }
+
+    if (prefs.enableLAN)
+    {
+        QMessageBox::warning(this, tr("FT-817/818"),
+                             tr("FT-817/818 is supported over a USB-serial CAT cable only.\n"
+                                "Disable the network connection and select the COM port in Settings."));
+        return;
+    }
+
+    const QString port = prefs.serialPortRadio.trimmed();
+    if (port.isEmpty() || port.toLower() == QStringLiteral("auto"))
+    {
+        QMessageBox::warning(this, tr("FT-817/818"),
+                             tr("Select the COM port of the USB-serial CAT cable in Settings."));
+        return;
+    }
+
+    // The radio's CAT RATE menu only offers these speeds.
+    const quint32 baud = prefs.serialPortBaud;
+    if (baud != 4800 && baud != 9600 && baud != 38400)
+    {
+        QMessageBox::warning(this, tr("FT-817/818"),
+                             tr("FT-817/818 CAT supports 4800, 9600 or 38400 bps only (current: %1).\n"
+                                "Match the baud rate to the radio's CAT RATE menu.").arg(baud));
+        return;
+    }
+
+    ft817Win = new ft817Window(port, baud, prefs.radioCIVAddr == FT818_MODEL_ID);
+    connect(ft817Win, &ft817Window::closed, this, [this]() {
+        qInfo(logSystem()) << "FT-817/818 window closed, returning to the main window";
+        this->show();
+        this->raise();
+    });
+    if (!ft817Win->openPort())
+    {
+        QMessageBox::critical(this, tr("FT-817/818"),
+                              tr("Could not open %1. Check that the USB-serial adapter is connected "
+                                 "and not used by another program.").arg(port));
+        ft817Win->close();
+        return;
+    }
+
+    qInfo(logSystem()) << "Starting FT-817/818 window on" << port << "at" << baud;
+    if (setupui->isVisible())
+        setupui->hide();
+    this->hide();
+    ft817Win->show();
 }
 
 void wfmain::on_sqlSlider_valueChanged(int value)

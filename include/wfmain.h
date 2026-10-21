@@ -24,6 +24,7 @@
 #include <QColorDialog>
 #include <QColor>
 #include <QMap>
+#include <QPointer>
 
 #include "logcategories.h"
 #include "wfviewtypes.h"
@@ -525,6 +526,10 @@ private:
     void saveConnectionProfile(const QString& name);
     bool loadConnectionProfile(const QString& name);
     void deleteConnectionProfile(const QString& name);
+
+    // FT-817/818 uses its own window and binary CAT protocol.
+    void launchFt817Window();
+    QPointer<class ft817Window> ft817Win;
 
     void initLogging();
     QTimer logCheckingTimer;
