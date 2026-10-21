@@ -37,3 +37,6 @@ aqtinstall.log
 
 # iOS: machine-specific symlink (points at Homebrew's eigen3)
 ios/include/eigen3
+
+# MSVC debug symbols (release builds use /Zi for the crash handler)
+*.pdb

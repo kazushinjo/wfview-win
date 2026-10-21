@@ -53,6 +53,9 @@ CONFIG(debug, release|debug) {
     linux:QMAKE_CXXFLAGS += -faligned-new
     linux:QMAKE_LFLAGS += -O2 -s
     win32:DESTDIR = wfview-release
+    # PDB for the crash handler's stack trace (src/crashhandler.cpp)
+    win32:QMAKE_CXXFLAGS_RELEASE += /Zi
+    win32:QMAKE_LFLAGS_RELEASE += /DEBUG /OPT:REF /OPT:ICF
     DEFINES += NDEBUG
 }
 
@@ -249,6 +252,8 @@ macos:LIBS += -framework CoreAudio -framework CoreFoundation -lpthread -lopus
 ios:LIBS += -framework CoreFoundation
 # WASAPI IAudioEndpointVolume, used to drive the OS output volume from the AF slider.
 win32:LIBS += -lole32
+# Crash handler: stack trace and minidump on abort/exception.
+win32:LIBS += -ldbghelp
 
 # Do not do this, it will hang on start:
 # CONFIG(release, debug|release):DEFINES += QT_NO_DEBUG_OUTPUT
@@ -402,6 +407,7 @@ DEFINES += "EXPORT="
 
 SOURCES += \
     src/aboutbox.cpp \
+    src/crashhandler.cpp \
     src/ft817window.cpp \
     src/audio/adpcm/adpcm-dns.c \
     src/audio/adpcm/adpcm-lib.c \
@@ -504,6 +510,7 @@ HEADERS  += \
     src/audio/resampler/arch.h \
     src/audio/resampler/resample_sse.h \
     include/aboutbox.h \
+    include/crashhandler.h \
     include/spectrumwidget.h \
     include/audioconverter.h \
     include/audiodevices.h \

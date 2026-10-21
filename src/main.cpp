@@ -32,6 +32,8 @@
 #endif
 
 #include "logcategories.h"
+#include "crashhandler.h"
+#include <QDir>
 
 #ifdef WFVIEW_IOS
 #include "iosaudiosession.h"
@@ -355,6 +357,9 @@ int main(int argc, char *argv[])
     w = new servermain(settingsFile);
 #else
     a.setWheelScrollLines(1); // one line per wheel click
+#ifdef Q_OS_WIN
+    installCrashHandler(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(logFilename).utf16()));
+#endif
     wfmain w(settingsFile, logFilename, debugMode);
 #ifdef WFVIEW_IOS
     // iOS makes the application's top-level window fullscreen itself.  Calling
