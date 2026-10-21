@@ -918,12 +918,13 @@ void ft817Window::buildUi()
     // Range scan: its own window, opened from the bottom strip.  As a child of
     // this window it closes with it and shares the scan state.
     scanWindow = new QWidget(this, Qt::Window);
-    scanWindow->setWindowTitle(QString("wfview - %1 %2").arg(ft818 ? "FT-818" : "FT-817", tr("周波数スキャン")));
+    // Qt appends " - wfview" (the application display name) to the title.
+    scanWindow->setWindowTitle(QString("%1 %2").arg(ft818 ? "FT-818" : "FT-817", tr("周波数スキャン")));
     scanWindow->setObjectName("ft817Scan");
     scanWindow->setAttribute(Qt::WA_StyledBackground);
     scanWindow->setStyleSheet(QString("#ft817Scan { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
                                       " stop:0 #3b3b3b, stop:1 #1b1b1b); }") + panelStyle +
-        "#ft817Scan QLabel { font-size: 15px; }"
+        "#ft817Scan QLabel { font-size: 15px; background: transparent; }"
         "#ft817Scan QLineEdit, #ft817Scan QComboBox, #ft817Scan QSpinBox"
         " { font-size: 15px; min-height: 32px; }"
         "#ft817Scan QComboBox { border-radius: 8px; }"
