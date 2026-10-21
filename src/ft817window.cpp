@@ -721,6 +721,7 @@ bool ft817Window::openPort()
 void ft817Window::closeEvent(QCloseEvent *event)
 {
     stopScan(QString());
+    scanWindow->close();
     pollTimer->stop();
     responseTimer->stop();
     gapTimer->stop();
@@ -905,14 +906,32 @@ void ft817Window::buildUi()
     refreshBtn->setMinimumWidth(90);
     connect(refreshBtn, &QPushButton::clicked, this, &ft817Window::refreshAll);
     bottom->addWidget(refreshBtn);
+    scanWindowBtn = makeKey(tr("スキャン..."), tr("周波数スキャンのウインドウを開く"));
+    scanWindowBtn->setMinimumWidth(120);
+    connect(scanWindowBtn, &QPushButton::clicked, this, &ft817Window::showScanWindow);
+    bottom->addWidget(scanWindowBtn);
     bottom->addStretch();
     disconnectBtn = makeKey(tr("切断して戻る"));
     connect(disconnectBtn, &QPushButton::clicked, this, &QWidget::close);
     bottom->addWidget(disconnectBtn);
 
-    // Range scan strip, above the bottom strip
-    auto *scanRow = new QHBoxLayout();
-    scanRow->setSpacing(6);
+    // Range scan: its own window, opened from the bottom strip.  As a child of
+    // this window it closes with it and shares the scan state.
+    scanWindow = new QWidget(this, Qt::Window);
+    scanWindow->setWindowTitle(QString("wfview - %1 %2").arg(ft818 ? "FT-818" : "FT-817", tr("周波数スキャン")));
+    scanWindow->setObjectName("ft817Scan");
+    scanWindow->setAttribute(Qt::WA_StyledBackground);
+    scanWindow->setStyleSheet(QString("#ft817Scan { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                                      " stop:0 #3b3b3b, stop:1 #1b1b1b); }") + panelStyle +
+        "#ft817Scan QLabel { font-size: 15px; }"
+        "#ft817Scan QLineEdit, #ft817Scan QComboBox, #ft817Scan QSpinBox"
+        " { font-size: 15px; min-height: 32px; }"
+        "#ft817Scan QComboBox { border-radius: 8px; }"
+        "#ft817Scan QPushButton { font-size: 15px; min-height: 36px; }");
+    auto *scanForm = new QGridLayout(scanWindow);
+    scanForm->setContentsMargins(16, 14, 16, 14);
+    scanForm->setHorizontalSpacing(8);
+    scanForm->setVerticalSpacing(10);
     const QString editStyle = "QLineEdit { background: #f0f0f0; color: black; border: 1px solid #8a8a8a; border-radius: 8px; padding: 2px 6px; }";
     auto makeScanEdit = [this, &editStyle](const QString& placeholder, int width) {
         auto *e = new QLineEdit(this);
@@ -921,23 +940,25 @@ void ft817Window::buildUi()
         e->setStyleSheet(editStyle);
         return e;
     };
-    scanRow->addWidget(new QLabel(tr("スキャン  開始")));
-    scanStartEdit = makeScanEdit(tr("MHz"), 110);
-    scanRow->addWidget(scanStartEdit);
-    scanRow->addWidget(new QLabel(tr("終了")));
-    scanEndEdit = makeScanEdit(tr("MHz"), 110);
-    scanRow->addWidget(scanEndEdit);
-    scanRow->addWidget(new QLabel(tr("ステップ")));
-    scanStepEdit = makeScanEdit(tr("kHz"), 80);
-    scanRow->addWidget(scanStepEdit);
-    scanRow->addWidget(new QLabel(tr("kHz")));
-    scanRow->addSpacing(8);
-    scanRow->addWidget(new QLabel(tr("信号で停止後")));
+    scanForm->addWidget(new QLabel(tr("開始")), 0, 0);
+    scanStartEdit = makeScanEdit(tr("MHz"), 140);
+    scanForm->addWidget(scanStartEdit, 0, 1);
+    scanForm->addWidget(new QLabel(tr("MHz")), 0, 2);
+    scanForm->addWidget(new QLabel(tr("終了")), 1, 0);
+    scanEndEdit = makeScanEdit(tr("MHz"), 140);
+    scanForm->addWidget(scanEndEdit, 1, 1);
+    scanForm->addWidget(new QLabel(tr("MHz")), 1, 2);
+    scanForm->addWidget(new QLabel(tr("ステップ")), 2, 0);
+    scanStepEdit = makeScanEdit(tr("kHz"), 140);
+    scanForm->addWidget(scanStepEdit, 2, 1);
+    scanForm->addWidget(new QLabel(tr("kHz")), 2, 2);
+    scanForm->addWidget(new QLabel(tr("信号で停止後")), 3, 0);
     scanResumeCombo = new QComboBox(this);
     scanResumeCombo->addItem(tr("指定秒数後に再開"), int(ScanResume::afterTime));
     scanResumeCombo->addItem(tr("信号が消えて指定秒数後に再開"), int(ScanResume::afterSignalGone));
     scanResumeCombo->addItem(tr("停止したまま"), int(ScanResume::stay));
-    scanRow->addWidget(scanResumeCombo);
+    scanForm->addWidget(scanResumeCombo, 3, 1, 1, 2);
+    scanForm->addWidget(new QLabel(tr("待ち時間")), 4, 0);
     scanWaitSpin = new QSpinBox(this);
     scanWaitSpin->setRange(1, 60);
     scanWaitSpin->setSuffix(tr(" 秒"));
@@ -945,8 +966,7 @@ void ft817Window::buildUi()
     scanWaitSpin->setFixedWidth(100);
     scanWaitSpin->setStyleSheet("QSpinBox { background: #f0f0f0; color: black; border: 1px solid #8a8a8a; border-radius: 8px;"
                                 " padding: 2px; selection-background-color: #3874d8; selection-color: white; }");
-    scanRow->addWidget(scanWaitSpin);
-    scanRow->addSpacing(8);
+    scanForm->addWidget(scanWaitSpin, 4, 1, Qt::AlignLeft);
     scanBtn = makeKey(tr("スキャン開始"), tr("指定範囲をステップごとに受信し、スケルチが開いたら止まります"));
     scanBtn->setMinimumWidth(140);
     connect(scanBtn, &QPushButton::clicked, this, [this]() {
@@ -955,8 +975,8 @@ void ft817Window::buildUi()
         else
             startScan();
     });
-    scanRow->addWidget(scanBtn);
-    scanRow->addStretch();
+    scanForm->setRowMinimumHeight(5, 6);
+    scanForm->addWidget(scanBtn, 6, 0, 1, 3);
 
     QSettings settings;
     settings.beginGroup("FT817Scan");
@@ -967,8 +987,8 @@ void ft817Window::buildUi()
     scanWaitSpin->setValue(settings.value("WaitSec", 5).toInt());
     settings.endGroup();
 
-    // Scan and bottom strips share larger text and controls (nearer ancestor
-    // style sheet, so it wins over panelStyle's 11px buttons).
+    // Bottom strip: larger text and controls (nearer ancestor style sheet, so
+    // it wins over panelStyle's 11px buttons).
     auto *controls = new QWidget(this);
     controls->setObjectName("ft817Controls");
     controls->setStyleSheet(
@@ -980,7 +1000,6 @@ void ft817Window::buildUi()
     auto *controlsLayout = new QVBoxLayout(controls);
     controlsLayout->setContentsMargins(0, 4, 0, 0);
     controlsLayout->setSpacing(10);
-    controlsLayout->addLayout(scanRow);
     controlsLayout->addLayout(bottom);
     root->addWidget(controls);
 
@@ -1003,6 +1022,8 @@ void ft817Window::updateUi()
 
     scanBtn->setText(scanning ? tr("スキャン停止") : tr("スキャン開始"));
     scanBtn->setStyleSheet(scanning ? "QPushButton { background: #c08000; color: black; }" : QString());
+    scanWindowBtn->setText(scanning ? tr("スキャン中...") : tr("スキャン..."));
+    scanWindowBtn->setStyleSheet(scanBtn->styleSheet());
     for (QWidget *w : {static_cast<QWidget*>(scanStartEdit), static_cast<QWidget*>(scanEndEdit),
                        static_cast<QWidget*>(scanStepEdit), static_cast<QWidget*>(scanResumeCombo),
                        static_cast<QWidget*>(scanWaitSpin)})
@@ -1759,6 +1780,23 @@ void ft817Window::sendPttOffNow()
     }
 }
 
+void ft817Window::showScanWindow()
+{
+    if (!scanWindow->isVisible())
+    {
+        // First show: place it just right of the main window.
+        scanWindow->adjustSize();
+        if (scanWindow->property("placed").isNull())
+        {
+            scanWindow->move(frameGeometry().topRight() + QPoint(8, 0));
+            scanWindow->setProperty("placed", true);
+        }
+        scanWindow->show();
+    }
+    scanWindow->raise();
+    scanWindow->activateWindow();
+}
+
 void ft817Window::startScan()
 {
     const auto parse = [](QLineEdit *e, double scale, bool *ok) {
@@ -1772,13 +1810,13 @@ void ft817Window::startScan()
     const qint64 stepHz = parse(scanStepEdit, 1000.0, &okStep);
     if (!okStart || !okEnd || startHz < 100000 || endHz > 470000000 || startHz >= endHz)
     {
-        QMessageBox::warning(this, tr("FT-817/818"),
+        QMessageBox::warning(scanWindow, tr("FT-817/818"),
                              tr("開始と終了の周波数をMHz単位で入力してください（開始 < 終了）。"));
         return;
     }
     if (!okStep || stepHz < 10 || stepHz % 10 != 0 || stepHz > endHz - startHz)
     {
-        QMessageBox::warning(this, tr("FT-817/818"),
+        QMessageBox::warning(scanWindow, tr("FT-817/818"),
                              tr("ステップをkHz単位で入力してください（0.01 kHz 単位、範囲の幅以下）。"));
         return;
     }
