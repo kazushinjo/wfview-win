@@ -768,6 +768,19 @@ void wfmain::openRig()
     //     showRigSettings(); // rig setting dialog box for network/serial, CIV, hostname, port, baud rate, serial device, etc
     // TODO: How do we know if the setting was loaded?
 
+    // The FT-817/818 is driven by its own window, not the rig pipeline. Also covers
+    // the automatic connect at startup, which runs before the main window is shown.
+    // main.cpp queues showMaximized() after this, so defer twice to run after it;
+    // otherwise the main window is shown again on top of the FT-817 window.
+    if (prefs.manufacturer == manufYaesu
+        && (prefs.radioCIVAddr == FT817_MODEL_ID || prefs.radioCIVAddr == FT818_MODEL_ID))
+    {
+        QTimer::singleShot(0, this, [this]() {
+            QTimer::singleShot(0, this, &wfmain::launchFt817Window);
+        });
+        return;
+    }
+
     emit connectionStatus(true); // Signal any other parts that need to know if we are connecting/connected.
     ui->connectBtn->setText("接続を中止"); // We are attempting to connect
     connStatus = connConnecting;
