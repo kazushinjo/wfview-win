@@ -91,6 +91,8 @@ private:
     quint8 spectrumInformation;
     quint8 lastSpectrum = 0;
     QTime lastDataReceived = QTime::currentTime();
+    bool reconnecting = false;
+    int reopenAttempts = 0;
 };
 
 #endif // COMMHANDLER_H

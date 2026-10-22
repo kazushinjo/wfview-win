@@ -1,5 +1,7 @@
 #include "settingswidget.h"
 #include "ft817window.h"
+#include "kx3window.h"
+#include "buttonstyle.h"
 #include "qserialportinfo.h"
 #include "ui_settingswidget.h"
 
@@ -136,10 +138,20 @@ settingswidget::settingswidget(QWidget *parent) :
     ui(new Ui::settingswidget)
 {
     ui->setupUi(this);
+    // Start with the model list usable (see ra_radioCIVAddr).
+    ui->rigCIVManualAddrChk->setChecked(true);
+    ui->rigCIVaddrCombo->setEnabled(true);
+    ui->useCIVasRigIDChk->setChecked(true);
 #ifdef WFVIEW_IOS
     // iOS apps are not quit from inside the app.
     ui->exitProgramBtn->hide();
 #endif
+
+    // Bottom row (save / defaults / connect / exit): larger than the
+    // application-wide 13pt buttons.
+    for (QPushButton *b : {ui->saveSettingsBtn, ui->revertSettingsBtn,
+                           ui->connectBtn, ui->exitProgramBtn})
+        b->setStyleSheet(wfview_largeButtonStyleSheet());
 
     connect(QGuiApplication::inputMethod(), &QInputMethod::keyboardRectangleChanged,
             this, &settingswidget::adjustForOnscreenKeyboard);
@@ -208,6 +220,8 @@ void settingswidget::createConnectionProfileControls()
     connectionProfileSaveBtn->setObjectName(QStringLiteral("connectionProfileSaveBtn"));
     connectionProfileDeleteBtn = new QPushButton(tr("削除"), ui->groupConnection);
     connectionProfileDeleteBtn->setObjectName(QStringLiteral("connectionProfileDeleteBtn"));
+    connectionProfileSaveBtn->setStyleSheet(wfview_largeButtonStyleSheet());
+    connectionProfileDeleteBtn->setStyleSheet(wfview_largeButtonStyleSheet());
 
     QHBoxLayout *profileButtons = new QHBoxLayout;
     profileButtons->setContentsMargins(0, 0, 0, 0);
@@ -452,6 +466,7 @@ void settingswidget::populateComboBoxes()
     ui->manufacturerCombo->addItem("Icom",manufIcom);
     ui->manufacturerCombo->addItem("Kenwood",manufKenwood);
     ui->manufacturerCombo->addItem("Yaesu",manufYaesu);
+    ui->manufacturerCombo->addItem("Elecraft",manufElecraft);
     //ui->manufacturerCombo->addItem("FlexRadio",manufFlexRadio);
     ui->manufacturerCombo->setCurrentIndex(0);
     ui->manufacturerCombo->blockSignals(false);
@@ -1094,14 +1109,16 @@ void settingswidget::updateRaPref(prefRaItem pra)
     switch(pra)
     {
     case ra_radioCIVAddr:
-        quietlyUpdateCheckbox(ui->rigCIVManualAddrChk, prefs->radioCIVAddr != 0);
+        // "CI-Vアドレスを入力する" is always checked when settings are loaded,
+        // so the model list can be picked from right away.  Until a model is
+        // picked the address stays 0 (automatic).
+        quietlyUpdateCheckbox(ui->rigCIVManualAddrChk, true);
+        ui->rigCIVaddrCombo->setEnabled(true);
         if(prefs->radioCIVAddr == 0)
         {
             ui->rigCIVaddrCombo->setCurrentIndex(-1);
-            ui->rigCIVaddrCombo->setEditText("auto");
-            ui->rigCIVaddrCombo->setEnabled(false);
+            ui->rigCIVaddrCombo->setEditText(QString());
         } else {
-            ui->rigCIVaddrCombo->setEnabled(true);
             setCivComboToAddress(prefs->radioCIVAddr);
         }
         break;
@@ -1971,7 +1988,13 @@ void settingswidget::populateCivAddrCombo()
     ui->rigCIVaddrCombo->blockSignals(true);
     ui->rigCIVaddrCombo->clear();
 
-    if (rigList != Q_NULLPTR && !rigList->isEmpty())
+    if (prefs != Q_NULLPTR && prefs->manufacturer == manufElecraft)
+    {
+        // The Elecraft KX3/KX2 has no rig definition file: its text CAT is
+        // driven by its own window (see kx3window.h).
+        ui->rigCIVaddrCombo->addItem(QStringLiteral("KX3 / KX2 (USB serial CAT)"), KX3_MODEL_ID);
+    }
+    else if (rigList != Q_NULLPTR && !rigList->isEmpty())
     {
         // Model name + address/ID from the .rig definition files of the
         // currently selected manufacturer (works for Icom, Kenwood, Yaesu).
@@ -2009,12 +2032,14 @@ void settingswidget::populateCivAddrCombo()
     if (ui->rigCIVaddrCombo->view() != Q_NULLPTR)
         ui->rigCIVaddrCombo->view()->setMinimumWidth(200);
 
-    const bool manualActive = prefs != Q_NULLPTR && prefs->radioCIVAddr != 0;
+    const bool manualActive = ui->rigCIVManualAddrChk->isChecked();
     ui->rigCIVaddrCombo->setEnabled(manualActive);
-    if (manualActive)
+    if (!manualActive)
+        ui->rigCIVaddrCombo->setEditText(QStringLiteral("auto"));
+    else if (prefs != Q_NULLPTR && prefs->radioCIVAddr != 0)
         setCivComboToAddress(prefs->radioCIVAddr);
     else
-        ui->rigCIVaddrCombo->setEditText(QStringLiteral("auto"));
+        ui->rigCIVaddrCombo->setEditText(QString());
 }
 
 void settingswidget::setCivComboToAddress(quint16 addr)
@@ -2036,7 +2061,10 @@ void settingswidget::on_rigCIVManualAddrChk_clicked(bool checked)
     if(checked)
     {
         ui->rigCIVaddrCombo->setEnabled(true);
-        setCivComboToAddress(prefs->radioCIVAddr);
+        if (prefs->radioCIVAddr != 0)
+            setCivComboToAddress(prefs->radioCIVAddr);
+        else
+            ui->rigCIVaddrCombo->setEditText(QString());
     } else {
         ui->rigCIVaddrCombo->setCurrentIndex(-1);
         ui->rigCIVaddrCombo->setEditText("auto");
@@ -2326,6 +2354,13 @@ void settingswidget::on_manufacturerCombo_currentIndexChanged(int value)
     ui->catPortTxt->setText(QString::number(udpPrefs->serialLANPort));
     ui->audioPortTxt->setText(QString::number(udpPrefs->audioLANPort));
     ui->scopePortTxt->setText(QString::number(udpPrefs->scopeLANPort));
+
+    // Elecraft has a single entry; select it so the connection opens the KX3 window.
+    if (prefs->manufacturer == manufElecraft && prefs->radioCIVAddr != KX3_MODEL_ID)
+    {
+        prefs->radioCIVAddr = KX3_MODEL_ID;
+        emit changedRaPref(ra_radioCIVAddr);
+    }
 
     // Rebuild the CI-V address list to match the selected manufacturer.
     populateCivAddrCombo();

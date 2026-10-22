@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QUdpSocket>
 #include <QNetworkDatagram>
+#include <QNetworkInterface>
 #include <QHostInfo>
 #include <QTimer>
 #include <QMutex>

@@ -134,7 +134,8 @@ enum pttType_t { pttCIV, pttRTS, pttDTR };
 
 enum vfoModeType_t { vfoModeVfo, vfoModeMem, vfoModeSat };
 
-enum manufacturersType_t {manufIcom=0, manufKenwood, manufYaesu, manufFlexRadio};
+// manufElecraft: KX3/KX2 only, driven by its own window (kx3window.h), no rig files.
+enum manufacturersType_t {manufIcom=0, manufKenwood, manufYaesu, manufFlexRadio, manufElecraft};
 
 struct lpfhpf {
     lpfhpf ():lpf(0),hpf(0) {};

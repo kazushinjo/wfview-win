@@ -1,6 +1,7 @@
 #include "wfmain.h"
 #include "icomserver.h"
 #include "ft817window.h"
+#include "kx3window.h"
 #include "ui_wfmain.h"
 
 #include "rigidentities.h"
@@ -791,6 +792,14 @@ void wfmain::openRig()
     {
         QTimer::singleShot(0, this, [this]() {
             QTimer::singleShot(0, this, &wfmain::launchFt817Window);
+        });
+        return;
+    }
+    // Likewise the Elecraft KX3/KX2 (the only Elecraft radios supported).
+    if (prefs.manufacturer == manufElecraft)
+    {
+        QTimer::singleShot(0, this, [this]() {
+            QTimer::singleShot(0, this, &wfmain::launchKx3Window);
         });
         return;
     }
@@ -2261,8 +2270,10 @@ void wfmain::setDefPrefs()
     defPrefs.rxSetup.isinput = false;
     defPrefs.txSetup.isinput = true;
     defPrefs.rxSetup.sampleRate = 48000;
-    defPrefs.rxSetup.codec = 4;
-    defPrefs.txSetup.codec = 4;
+    // Opus 1ch: LPCM's 1364-byte packets exceed the cellular path MTU.
+    // Non-wfview servers fall back to LPCM16 automatically (icomUdpHandler).
+    defPrefs.rxSetup.codec = 64;
+    defPrefs.txSetup.codec = 64;
     defPrefs.rxSetup.resampleQuality = 4;
 	
 	// Cluster
@@ -2446,7 +2457,8 @@ void wfmain::loadSettings()
     settings->beginGroup("Radio");
     prefs.manufacturer = (manufacturersType_t)settings->value("Manufacturer", defPrefs.manufacturer).value<manufacturersType_t>();
     prefs.radioCIVAddr = (quint16)settings->value("RigCIVuInt", defPrefs.radioCIVAddr).toInt();
-    prefs.CIVisRadioModel = (bool)settings->value("CIVisRadioModel", defPrefs.CIVisRadioModel).toBool();
+    // Always start with "use CI-V address as model ID" checked.
+    prefs.CIVisRadioModel = true;
     prefs.pttType = (pttType_t)settings->value("PTTType", defPrefs.pttType).toInt();
     prefs.serialPortRadio = settings->value("SerialPortRadio", defPrefs.serialPortRadio).toString();
     prefs.serialPortBaud = (quint32)settings->value("SerialPortBaud", defPrefs.serialPortBaud).toInt();
@@ -3842,7 +3854,7 @@ bool wfmain::loadConnectionProfile(const QString& name)
     {
         prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", prefs.manufacturer).toInt());
         prefs.radioCIVAddr = static_cast<quint16>(settings->value("RigCIVuInt", prefs.radioCIVAddr).toInt());
-        prefs.CIVisRadioModel = settings->value("CIVisRadioModel", prefs.CIVisRadioModel).toBool();
+        prefs.CIVisRadioModel = true; // always checked when a profile is loaded
         prefs.pttType = static_cast<pttType_t>(settings->value("PTTType", prefs.pttType).toInt());
         prefs.polling_ms = settings->value("polling_ms", prefs.polling_ms).toInt();
         prefs.serialPortRadio = settings->value("SerialPortRadio", prefs.serialPortRadio).toString();
@@ -3884,7 +3896,7 @@ bool wfmain::loadConnectionProfile(const QString& name)
 
             prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", prefs.manufacturer).toInt());
             prefs.radioCIVAddr = static_cast<quint16>(settings->value("RigCIVuInt", prefs.radioCIVAddr).toInt());
-            prefs.CIVisRadioModel = settings->value("CIVisRadioModel", prefs.CIVisRadioModel).toBool();
+            prefs.CIVisRadioModel = true; // always checked when a profile is loaded
             prefs.pttType = static_cast<pttType_t>(settings->value("PTTType", prefs.pttType).toInt());
             prefs.polling_ms = settings->value("polling_ms", prefs.polling_ms).toInt();
             prefs.serialPortRadio = settings->value("SerialPortRadio", prefs.serialPortRadio).toString();
@@ -5290,15 +5302,17 @@ bool wfmain::doExit(bool confirmExit)
     bool ret=false;
     if (prefs.settingsChanged && prefs.confirmSettingsChanged)
     {
-        QCheckBox *cb = new QCheckBox("Don't ask me again");
-        cb->setToolTip("Don't ask me to confirm saving settings again");
+        QCheckBox *cb = new QCheckBox(tr("今後確認しない"));
+        cb->setToolTip(tr("設定の保存確認を今後表示しない"));
         QMessageBox msgbox;
-        msgbox.setText("Settings have changed since last save, exit anyway?\n");
+        msgbox.setWindowTitle(tr("終了"));
+        msgbox.setText(tr("設定が保存されていません。このまま終了しますか？\n"));
+        msgbox.setStyleSheet(wfview_largeDialogStyleSheet());
         msgbox.setIcon(QMessageBox::Icon::Question);
-        QAbstractButton *yesButton = msgbox.addButton(QMessageBox::Yes);
-        QAbstractButton *saveButton = msgbox.addButton(QMessageBox::Save);
-        msgbox.addButton(QMessageBox::No);
-        msgbox.setDefaultButton(QMessageBox::Yes);
+        QPushButton *yesButton = msgbox.addButton(tr("はい"), QMessageBox::YesRole);
+        QPushButton *saveButton = msgbox.addButton(tr("保存"), QMessageBox::AcceptRole);
+        msgbox.addButton(tr("いいえ"), QMessageBox::NoRole);
+        msgbox.setDefaultButton(yesButton);
         msgbox.setCheckBox(cb);
 #if (QT_VERSION >= QT_VERSION_CHECK(6,7,0))
         QObject::connect(cb, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState state){
@@ -5335,14 +5349,16 @@ bool wfmain::doExit(bool confirmExit)
     if (!prefs.confirmExit || !confirmExit) {
         QApplication::exit();
     } else {
-        QCheckBox *cb = new QCheckBox(tr("Don't ask me again"));
-        cb->setToolTip(tr("Don't ask me to confirm exit again"));
+        QCheckBox *cb = new QCheckBox(tr("今後確認しない"));
+        cb->setToolTip(tr("終了の確認を今後表示しない"));
         QMessageBox msgbox;
-        msgbox.setText(tr("Are you sure you wish to exit?\n"));
+        msgbox.setWindowTitle(tr("終了"));
+        msgbox.setText(tr("プログラムを終了しますか？\n"));
+        msgbox.setStyleSheet(wfview_largeDialogStyleSheet());
         msgbox.setIcon(QMessageBox::Icon::Question);
-        QAbstractButton *yesButton = msgbox.addButton(QMessageBox::Yes);
-        msgbox.addButton(QMessageBox::No);
-        msgbox.setDefaultButton(QMessageBox::Yes);
+        QPushButton *yesButton = msgbox.addButton(tr("はい"), QMessageBox::YesRole);
+        msgbox.addButton(tr("いいえ"), QMessageBox::NoRole);
+        msgbox.setDefaultButton(yesButton);
         msgbox.setCheckBox(cb);
 #if (QT_VERSION >= QT_VERSION_CHECK(6,7,0))
         QObject::connect(cb, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState state){
@@ -5477,6 +5493,13 @@ void wfmain::on_connectBtn_clicked()
         return;
     }
 
+    if (connStatus == connDisconnected && prefs.manufacturer == manufElecraft)
+    {
+        launchKx3Window();
+        ui->connectBtn->clearFocus();
+        return;
+    }
+
     if (connStatus == connDisconnected) {
         if (startupSettingsOnly)
         {
@@ -5568,6 +5591,75 @@ void wfmain::launchFt817Window()
     ft817Win->show();
 }
 
+void wfmain::launchKx3Window()
+{
+    if (kx3Win)
+    {
+        kx3Win->show();
+        kx3Win->raise();
+        kx3Win->activateWindow();
+        return;
+    }
+
+    if (prefs.enableLAN)
+    {
+        QMessageBox::warning(this, tr("KX3"),
+                             tr("KX3 は USB シリアル CAT ケーブルでのみ接続できます。\n"
+                                "設定でネットワーク接続を OFF にし、COM ポートを選択してください。"));
+        return;
+    }
+
+    const QString port = prefs.serialPortRadio.trimmed();
+    if (port.isEmpty() || port.toLower() == QStringLiteral("auto"))
+    {
+        QMessageBox::warning(this, tr("KX3"),
+                             tr("設定で USB シリアル CAT ケーブルの COM ポートを選択してください。"));
+        return;
+    }
+
+    // Speeds of the radio's RS232 menu (factory default 4800).
+    const quint32 baud = prefs.serialPortBaud;
+    if (baud != 4800 && baud != 9600 && baud != 19200 && baud != 38400)
+    {
+        QMessageBox::warning(this, tr("KX3"),
+                             tr("KX3 の CAT は 4800 / 9600 / 19200 / 38400 bps のみです（現在: %1）。\n"
+                                "本体の RS232 メニューと同じボーレートにしてください。").arg(baud));
+        return;
+    }
+
+    kx3Win = new kx3Window(port, baud);
+    connect(kx3Win, &kx3Window::closed, this, [this]() {
+        qInfo(logSystem()) << "KX3 window closed, returning to the Settings window";
+        showStartupSettings();
+    });
+    connect(kx3Win, &kx3Window::exitRequested, this, [this]() {
+        // The user already confirmed in the KX3 window, so no second
+        // "exit?" question; unsaved settings are still asked about.
+        if (doExit(false))
+        {
+            kx3Win->close();        // exit cancelled: back to the Settings window
+            return;
+        }
+        kx3Win->blockSignals(true);
+        kx3Win->close();
+    });
+    if (!kx3Win->openPort())
+    {
+        QMessageBox::critical(this, tr("KX3"),
+                              tr("%1 を開けませんでした。USB シリアルケーブルの接続と、"
+                                 "他のプログラムが使用していないかを確認してください。").arg(port));
+        kx3Win->close();
+        return;
+    }
+
+    qInfo(logSystem()) << "Starting KX3 window on" << port << "at" << baud;
+    startupSettingsOnly = false;
+    if (setupui->isVisible())
+        setupui->hide();
+    this->hide();
+    kx3Win->show();
+}
+
 void wfmain::showStartupSettings()
 {
     startupSettingsOnly = true;
@@ -5579,7 +5671,7 @@ void wfmain::loadProfileForSettings()
 {
     // The Settings window always starts from the selected connection profile,
     // but not while a radio is in use: that would change settings under it.
-    if (connStatus != connDisconnected || (ft817Win && !startupSettingsOnly))
+    if (connStatus != connDisconnected || ((ft817Win || kx3Win) && !startupSettingsOnly))
         return;
     if (currentConnectionProfile.isEmpty())
         return;

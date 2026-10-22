@@ -533,6 +533,8 @@ private:
     // FT-817/818 uses its own window and binary CAT protocol.
     void launchFt817Window();
     QPointer<class ft817Window> ft817Win;
+    void launchKx3Window();
+    QPointer<class kx3Window> kx3Win;
 
     void showMainWindow();
     void loadProfileForSettings();

@@ -11,7 +11,7 @@
 #define WFVIEW_BTN_BG_CHECKED  "#4fc3f7"
 #define WFVIEW_BTN_BORDER      "#4fa3c7"
 #define WFVIEW_BTN_TEXT        "#202124"
-#define WFVIEW_BTN_FONT_SIZE   "11pt"
+#define WFVIEW_BTN_FONT_SIZE   "13pt"
 
 static inline QString wfview_buttonStyleSheet()
 {
@@ -37,6 +37,19 @@ static inline QString wfview_buttonStyleSheet(const QString &extra)
         "QPushButton:hover { background-color: " WFVIEW_BTN_BG_HOVER "; }"
         "QPushButton:pressed, QPushButton:checked { background-color: " WFVIEW_BTN_BG_CHECKED "; }")
         .arg(extra);
+}
+
+// Larger buttons for main actions (settings window bottom row, profile
+// save / delete) and for the exit confirmation dialogs.
+static inline QString wfview_largeButtonStyleSheet()
+{
+    return wfview_buttonStyleSheet(
+        QStringLiteral("font-size: 14pt; border-radius: 4px; padding: 6px 16px; min-height: 22px;"));
+}
+
+static inline QString wfview_largeDialogStyleSheet()
+{
+    return QStringLiteral("QLabel, QCheckBox { font-size: 14pt; }") + wfview_largeButtonStyleSheet();
 }
 
 // Darker blue used only for the transmit button so it stands out.

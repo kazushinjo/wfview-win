@@ -33,6 +33,11 @@ icomUdpHandler::icomUdpHandler(udpPreferences prefs, audioSetup rx, audioSetup t
     if (!radioIP.setAddress(prefs.ipAddress))
     {
         QHostInfo remote = QHostInfo::fromName(prefs.ipAddress);
+        // Prefer IPv4, but fall back to IPv6 rather than leaving radioIP null.
+        // Cellular/CGNAT-ish networks can resolve a hostname to AAAA-only
+        // records; requiring IPv4 here silently aborted the connection with
+        // no address ever assigned (this constructor just returns).
+        QHostAddress fallbackV6;
         for(const auto &addr: remote.addresses())
         {
             if (addr.protocol() == QAbstractSocket::IPv4Protocol) {
@@ -40,17 +45,29 @@ icomUdpHandler::icomUdpHandler(udpPreferences prefs, audioSetup rx, audioSetup t
                 qInfo(logUdp()) << "Got IP Address :" << prefs.ipAddress << ": " << addr.toString();
                 break;
             }
+            else if (addr.protocol() == QAbstractSocket::IPv6Protocol && fallbackV6.isNull()) {
+                fallbackV6 = addr;
+            }
+        }
+        if (radioIP.isNull() && !fallbackV6.isNull()) {
+            radioIP = fallbackV6;
+            qInfo(logUdp()) << "Got IPv6 Address (no IPv4 record) :" << prefs.ipAddress << ": " << radioIP.toString();
         }
         if (radioIP.isNull())
-        { 
+        {
             qInfo(logUdp()) << "Error obtaining IP Address for :" << prefs.ipAddress << ": " << remote.errorString();
             return;
         }
     }
-    
-    // Convoluted way to find the external IP address, there must be a better way????
-    QString localhostname = QHostInfo::localHostName();
-    QList<QHostAddress> hostList = QHostInfo::fromName(localhostname).addresses();
+
+    // Find our own local IPv4 address by asking the network interfaces
+    // directly, not by resolving our own hostname. Self-hostname resolution
+    // depends on mDNS reflection, which is not guaranteed on every network
+    // path (confirmed broken on iOS cellular -- see the iOS port's identical
+    // fix); myId (sent to the radio as the client identifier) is derived
+    // from localIP, so a failed self-lookup meant the radio had nothing
+    // valid to route its response to.
+    const QList<QHostAddress> hostList = QNetworkInterface::allAddresses();
     for(const auto &address: hostList)
     {
         if (address.protocol() == QAbstractSocket::IPv4Protocol && address.isLoopback() == false)

@@ -1,4 +1,5 @@
 #include "ft817window.h"
+#include "buttonstyle.h"
 #include "logcategories.h"
 
 #include <QSerialPort>
@@ -1730,10 +1731,16 @@ void ft817Window::powerOn()
 
 void ft817Window::powerOff()
 {
-    const auto ret = QMessageBox::question(this, tr("FT-817/818"),
-                                           tr("無線機の電源を OFF にして、プログラムを終了しますか？"),
-                                           QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
-    if (ret != QMessageBox::Yes || !isOpen())
+    QMessageBox msgbox(this);
+    msgbox.setWindowTitle(tr("FT-817/818"));
+    msgbox.setText(tr("無線機の電源を OFF にして、プログラムを終了しますか？"));
+    msgbox.setIcon(QMessageBox::Icon::Question);
+    msgbox.setStyleSheet(wfview_largeDialogStyleSheet());
+    QPushButton *yesButton = msgbox.addButton(tr("はい"), QMessageBox::YesRole);
+    QPushButton *cancelButton = msgbox.addButton(tr("キャンセル"), QMessageBox::RejectRole);
+    msgbox.setDefaultButton(cancelButton);
+    msgbox.exec();
+    if (msgbox.clickedButton() != yesButton || !isOpen())
         return;
     // Send it right away instead of queueing: polling stops and the
     // program exits right after.

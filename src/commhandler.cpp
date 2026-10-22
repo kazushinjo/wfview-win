@@ -52,6 +52,7 @@ void commHandler::init()
 
     port = new QSerialPort();
     setupComm(); // basic parameters
+    reopenAttempts = 0;
     openPort();
     // qInfo(logSerial()) << "Serial buffer size: " << port->readBufferSize();
     //port->setReadBufferSize(1024); // manually. 256 never saw any return from the radio. why...
@@ -66,6 +67,7 @@ void commHandler::init()
 
     connect(this, SIGNAL(sendDataOutToPort(const QByteArray&)),this,SLOT(sendDataOut(const QByteArray &)));
     lastDataReceived = QTime::currentTime();
+    reconnecting = false;
 }
 
 commHandler::~commHandler()
@@ -104,8 +106,14 @@ void commHandler::sendDataOut(const QByteArray &writeData)
     }
 
     // Recycle port to attempt reconnection.
-    if (lastDataReceived.msecsTo(QTime::currentTime()) > 10000) {
+    // Note: the rig can legitimately stay quiet for a while (e.g. while it is busy
+    // keying out a "Send CW Message" command), so this needs a generous timeout and
+    // must not be re-triggered while a reconnect is already in flight, otherwise
+    // concurrent init() calls can tear down/replace the port out from under each other
+    // and leave it permanently closed (see: CW send breaking the serial connection).
+    if (!reconnecting && lastDataReceived.msecsTo(QTime::currentTime()) > 30000) {
         qDebug(logSerial()) << "Serial port error? Attempting reconnect...";
+        reconnecting = true;
         lastDataReceived = QTime::currentTime();
         QTimer::singleShot(100, this, SLOT(init()));
         QTimer::singleShot(500, this, [=]() { sendDataOut(writeData); });
@@ -340,9 +348,20 @@ void commHandler::openPort()
         port->setDataTerminalReady(false);
         port->setRequestToSend(false);
         isConnected = true;
+        reopenAttempts = 0;
         qInfo(logSerial()) << "Opened port: " << portName;
         return;
     } else {
+        // The OS can take a moment to release/re-enumerate the device node
+        // right after we closed it (e.g. reconnecting while the rig is busy
+        // keying CW), so a single failed open is not necessarily terminal.
+        // Retry a few times before giving up.
+        if (reopenAttempts < 5) {
+            reopenAttempts++;
+            qInfo(logSerial()) << "Could not open serial port " << portName << ", retrying (" << reopenAttempts << "/5)...";
+            QTimer::singleShot(1000, this, [=]() { openPort(); });
+            return;
+        }
         qInfo(logSerial()) << "Could not open serial port " << portName << " , please check Radio Access under Settings.";
         isConnected = false;
         serialError = true;
@@ -408,8 +427,9 @@ void commHandler::handleError(QSerialPort::SerialPortError err)
         case QSerialPort::NoError:
             break;
         default:
-            if (lastDataReceived.msecsTo(QTime::currentTime()) > 2000) {
+            if (!reconnecting && lastDataReceived.msecsTo(QTime::currentTime()) > 2000) {
                 qDebug(logSerial()) << "Serial port" << port->portName() << "Error, attempting disconnect/reconnect";
+                reconnecting = true;
                 lastDataReceived = QTime::currentTime();
                 QTimer::singleShot(500, this, SLOT(init()));
             }
