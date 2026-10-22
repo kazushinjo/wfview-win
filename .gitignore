@@ -40,3 +40,5 @@ ios/include/eigen3
 
 # MSVC debug symbols (release builds use /Zi for the crash handler)
 *.pdb
+# qmake-generated Windows resource file (contains a machine-specific path)
+wfview-win_resource.rc
